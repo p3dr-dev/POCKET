@@ -1,0 +1,62 @@
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    const debts = await prisma.$queryRaw`SELECT * FROM Debt ORDER BY dueDate ASC`;
+    return NextResponse.json(Array.isArray(debts) ? debts : []);
+  } catch (error) {
+    return NextResponse.json([]);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const type = body.type || 'SINGLE';
+    const count = type === 'SINGLE' ? 1 : (body.installmentsCount || 2);
+    const initialDateStr = body.dueDate ? (body.dueDate.includes('T') ? body.dueDate : `${body.dueDate}T12:00:00.000Z`) : null;
+    const initialDate = initialDateStr ? new Date(initialDateStr) : null;
+    const now = new Date().toISOString();
+
+    // Helper to add months safely
+    const addMonths = (date: Date, months: number) => {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + months);
+      if (d.getDate() !== date.getDate()) {
+        d.setDate(0);
+      }
+      return d;
+    };
+
+    for (let i = 0; i < count; i++) {
+      const id = Math.random().toString(36).substring(2, 15);
+      const dueDate = (initialDate && type !== 'SINGLE') ? addMonths(initialDate, i).toISOString() : initialDateStr;
+      
+      let description = body.description;
+      if (type === 'INSTALLMENT') {
+        description = `${body.description} (${i + 1}/${count})`;
+      }
+
+      await prisma.$executeRaw`
+        INSERT INTO Debt (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
+        VALUES (
+          ${id}, 
+          ${description}, 
+          ${Number(body.totalAmount)}, 
+          ${Number(body.paidAmount || 0)}, 
+          ${dueDate}, 
+          ${now}, 
+          ${now}
+        )
+      `;
+    }
+
+    return NextResponse.json({ success: true }, { status: 201 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Erro ao salvar dívida' }, { status: 500 });
+  }
+}

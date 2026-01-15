@@ -1,0 +1,96 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  type         TransactionType
+  monthlyLimit Float?        // Limite de gastos mensal
+  transactions Transaction[]
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String
+  type         AccountType
+  color        String?       @default("#000000")
+  transactions Transaction[]
+  investments  Investment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  description String
+  amount      Float
+  date        DateTime
+  type        TransactionType
+  categoryId  String
+  category    Category        @relation(fields: [categoryId], references: [id])
+  accountId   String
+  account     Account         @relation(fields: [accountId], references: [id])
+  externalId  String?         @unique // Hash para evitar duplicidade
+  
+  // Novos campos para comprovantes
+  payee       String?         // Recebedor
+  payer       String?         // Pagador
+  bankRefId   String?         // ID da transação no banco
+  transferId  String?         // ID para agrupar transações de transferência
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Investment {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // Ex: Ações, FIIs, Tesouro, Cripto
+  amount      Float
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Debt {
+  id          String   @id @default(cuid())
+  description String
+  totalAmount Float
+  paidAmount  Float    @default(0)
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  name        String
+  targetAmount Float
+  currentAmount Float   @default(0)
+  deadline    DateTime
+  color       String?  @default("#000000")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum AccountType {
+  BANK
+  CASH
+  CREDIT_CARD
+  CRYPTO
+  INVESTMENT
+}

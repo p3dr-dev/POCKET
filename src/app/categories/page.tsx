@@ -1,0 +1,211 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Sidebar from '@/components/Sidebar';
+import toast from 'react-hot-toast';
+
+interface Category {
+  id: string;
+  name: string;
+  type: 'INCOME' | 'EXPENSE';
+  monthlyLimit: number | null;
+}
+
+export default function CategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
+  const [newLimit, setNewLimit] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchCategories = async () => {
+    setIsLoading(true);
+    const res = await fetch('/api/categories');
+    const data = await res.json();
+    setCategories(Array.isArray(data) ? data : []);
+    setIsLoading(false);
+  };
+
+  useEffect(() => { fetchCategories(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: newName, 
+          type: newType, 
+          monthlyLimit: newLimit ? parseFloat(newLimit) : null 
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      toast.success('Categoria criada!');
+      setNewName('');
+      setNewLimit('');
+      fetchCategories();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao criar');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateLimit = async (id: string, name: string, limit: number | null) => {
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name, monthlyLimit: limit }),
+      });
+      if (res.ok) toast.success('Atualizado');
+      fetchCategories();
+    } catch { toast.error('Erro ao atualizar'); }
+  };
+
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  return (
+    <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <header className="flex-none bg-[#F8FAFC]/80 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center border-b border-gray-100/50 z-10">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-100 lg:hidden active:scale-95 transition-transform">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <h1 className="text-xl lg:text-2xl font-black tracking-tight">Categorias e Orçamentos</h1>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 xl:p-10 custom-scrollbar">
+          <div className="max-w-5xl mx-auto space-y-10 pb-20">
+            
+            {/* Create New Section */}
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+              <div className="relative z-10">
+                <h2 className="text-lg font-black mb-6 uppercase tracking-widest text-gray-400">Novo Planejamento</h2>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Nome</label>
+                    <input 
+                      required
+                      value={newName}
+                      onChange={e => setNewName(e.target.value)}
+                      placeholder="Ex: Alimentação, Apps..." 
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Tipo</label>
+                    <select 
+                      value={newType}
+                      onChange={e => setNewType(e.target.value as any)}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none"
+                    >
+                      <option value="EXPENSE">Saída (Gasto)</option>
+                      <option value="INCOME">Entrada (Receita)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Limite Mensal (Opcional)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={newLimit}
+                      onChange={e => setNewLimit(e.target.value)}
+                      placeholder="R$ 0,00" 
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all"
+                    />
+                  </div>
+                  <div className="md:col-span-4 flex justify-end mt-2">
+                    <button 
+                      disabled={isSubmitting}
+                      className="bg-black text-white px-10 py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-black/10"
+                    >
+                      {isSubmitting ? '...' : 'Salvar Categoria'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* List Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Expenses */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-4">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-rose-500">Gestão de Gastos</h3>
+                  <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'EXPENSE').length} itens</span>
+                </div>
+                <div className="space-y-3">
+                  {categories.filter(c => c.type === 'EXPENSE').map(cat => (
+                    <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-rose-200 transition-all">
+                      <div className="flex-1">
+                        <span className="font-black text-gray-900 block">{cat.name}</span>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
+                          Limite: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Sem limite definido'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            const val = prompt('Novo limite mensal (ou deixe em branco para remover):', cat.monthlyLimit?.toString() || '');
+                            if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                          }}
+                          className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Incomes */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-4">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Gestão de Receitas</h3>
+                  <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'INCOME').length} itens</span>
+                </div>
+                <div className="space-y-3">
+                  {categories.filter(c => c.type === 'INCOME').map(cat => (
+                    <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
+                      <div className="flex-1">
+                        <span className="font-black text-gray-900 block">{cat.name}</span>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Recorrência Estimada: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Não estimada'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            const val = prompt('Estimativa mensal:', cat.monthlyLimit?.toString() || '');
+                            if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                          }}
+                          className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
