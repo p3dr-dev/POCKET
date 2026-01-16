@@ -1,4 +1,4 @@
-export async function askAI(prompt: string, system: string = "Você é um assistente financeiro inteligente e rigoroso.") {
+export async function askAI(prompt: string, system: string = "Você é um assistente financeiro inteligente e rigoroso.", image?: string) {
   try {
     const baseUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
     const apiKey = process.env.OLLAMA_API_KEY;
@@ -12,15 +12,26 @@ export async function askAI(prompt: string, system: string = "Você é um assist
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
+    const messages: any[] = [
+      { role: 'system', content: system },
+    ];
+
+    if (image) {
+      messages.push({
+        role: 'user',
+        content: prompt, // O prompt principal
+        images: [image] // Array de imagens em base64
+      });
+    } else {
+      messages.push({ role: 'user', content: prompt });
+    }
+
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: prompt }
-        ],
+        messages,
         stream: false
       }),
     });

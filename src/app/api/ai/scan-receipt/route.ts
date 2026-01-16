@@ -5,7 +5,6 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
-import { createWorker } from 'tesseract.js';
 import os from 'os';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
       (file.type.includes('png') ? '.png' : '.jpg') : 
       '.pdf';
       
-    // Usar diretório temporário do SO (funciona em Windows e Vercel)
+    // Usar diretório temporário do SO
     const fileName = `receipt_${Date.now()}${ext}`;
     tempFilePath = path.join(os.tmpdir(), fileName);
     fs.writeFileSync(tempFilePath, buffer);
@@ -33,26 +32,20 @@ export async function POST(request: Request) {
     let text = "";
 
     if (file.type.startsWith('image/')) {
-      // Process Image with Tesseract
-      console.log('Processing image with OCR...');
+      // Remover Tesseract.js e usar a IA para descrever a imagem
+      const base64Image = buffer.toString('base64');
+      const imagePrompt = `Descreva o texto contido nesta imagem. Extraia qualquer informação financeira relevante, como valores, datas, descrições, recebedores ou pagadores. Retorne apenas o texto puro da imagem.`;
       
-      // Use CDN for worker and core in production (Vercel) to avoid file system issues
-      const worker = await createWorker('por', 1, {
-        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.0/dist/worker.min.js',
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v5.0.0/tesseract-core.wasm.js',
-      });
+      const aiResponse = await askAI(imagePrompt, "Você é um assistente de visão computacional especializado em extrair texto de imagens, focando em dados financeiros.", `data:image/jpeg;base64,${base64Image}`);
+      text = aiResponse || ''; // Se a IA não retornar texto, assume vazio
       
-      const ret = await worker.recognize(buffer);
-      text = ret.data.text;
-      await worker.terminate();
     } else {
       // Process PDF with external script
       const scriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf.js');
       text = execSync(`node "${scriptPath}" "${tempFilePath}"`, { encoding: 'utf8' });
     }
 
-    if (!text || text.length < 10) return NextResponse.json({ message: 'Não foi possível ler o comprovante (Texto insuficiente)' }, { status: 400 });
+    if (!text || text.length < 10) return NextResponse.json({ message: 'Não foi possível ler o comprovante (Texto insuficiente ou IA não retornou)' }, { status: 400 });
 
     const [categories, accounts] = await Promise.all([
       prisma.$queryRaw`SELECT id, name FROM Category`,
