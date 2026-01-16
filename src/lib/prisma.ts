@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import * as dotenv from 'dotenv';
 
-dotenv.config(); // Carrega as variáveis de ambiente no início
+// Remover dotenv.config() e confiar no Next.js/Vercel para carregar env vars
 
 const prismaClientSingleton = () => {
   const databaseUrl = process.env.DATABASE_URL; // URL direta para db push e fallback
