@@ -25,7 +25,8 @@ export async function POST(request: Request) {
       (file.type.includes('png') ? '.png' : '.jpg') : 
       '.pdf';
       
-    tempFilePath = path.join(process.cwd(), `receipt_${Date.now()}${ext}`);
+    // USE /tmp for temporary files on Vercel
+    tempFilePath = path.join('/tmp', `receipt_${Date.now()}${ext}`);
     fs.writeFileSync(tempFilePath, buffer);
 
     let text = "";
@@ -34,16 +35,10 @@ export async function POST(request: Request) {
       // Process Image with Tesseract
       console.log('Processing image with OCR...');
       
-      const workerPath = path.join(process.cwd(), 'node_modules', 'tesseract.js', 'src', 'worker-script', 'node', 'index.js');
-      console.log('Worker Path:', workerPath);
-
-      const worker = await createWorker('por', 1, {
-        workerPath: workerPath,
-        // Optional: define corePath if needed, but usually workerPath is enough to bootstrap
-        // logger: m => console.log(m)
-      });
+      // On Vercel, we can't rely on node_modules path for worker, Tesseract usually handles it
+      const worker = await createWorker('por');
       
-      const ret = await worker.recognize(tempFilePath);
+      const ret = await worker.recognize(buffer); // Use buffer directly for images
       text = ret.data.text;
       await worker.terminate();
     } else {
