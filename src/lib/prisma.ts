@@ -1,19 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 
-// Remover dotenv.config() e confiar no Next.js/Vercel para carregar env vars
+// O prisma.config.ts gerenciará a configuração do datasource
+// e o Next.js/Vercel injetará as variáveis de ambiente.
 
 const prismaClientSingleton = () => {
-  const databaseUrl = process.env.DATABASE_URL; // URL direta para db push e fallback
-  const accelerateUrl = process.env.PRISMA_ACCELERATE_ENDPOINT; // URL do Accelerate para a aplicação
+  const databaseUrl = process.env.DATABASE_URL; // Esta deve ser a URL do Accelerate na Vercel
 
-  // Prioriza Accelerate se disponível
-  const finalUrl = accelerateUrl || databaseUrl;
-
-  console.log(`🔌 [Prisma] Usando URL: ${finalUrl ? finalUrl.substring(0, 10) + '...' : 'Nenhuma'}`);
+  console.log(`🔌 [Prisma] Usando DATABASE_URL: ${databaseUrl ? databaseUrl.substring(0, 10) + '...' : 'Nenhuma'}`);
+  
+  // Se DATABASE_URL não estiver definida, o Prisma vai tentar usar o default do schema.prisma
   return new PrismaClient({
     datasources: {
       db: {
-        url: finalUrl,
+        url: databaseUrl,
       },
     },
   });
