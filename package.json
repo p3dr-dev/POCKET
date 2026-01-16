@@ -11,7 +11,8 @@
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:reset-migrate": "set DATABASE_URL=postgres://d5091e5b5e1ed28e2b7b3732e44b047eada7e62eff697ffeeae87d1b63534390:sk_GpoZr-osM1bsMI6pn2Grr@db.prisma.io:5432/postgres?sslmode=require && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Autorizo\" && npx prisma migrate reset --force && npx prisma migrate dev --name init --skip-seed"
+    "db:reset-migrate": "set DATABASE_URL=postgres://d5091e5b5e1ed28e2b7b3732e44b047eada7e62eff697ffeeae87d1b63534390:sk_GpoZr-osM1bsMI6pn2Grr@db.prisma.io:5432/postgres?sslmode=require && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Autorizo\" && npx prisma migrate reset --force && npx prisma migrate dev --name init --skip-seed",
+    "db:vercel-deploy": "set DATABASE_URL=%DIRECT_DATABASE_URL% && npx prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
