@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Controle total do seu dinheiro, investimentos e gastos em um só lugar.",
 };
 
+import AuthProvider from '@/components/AuthProvider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,8 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

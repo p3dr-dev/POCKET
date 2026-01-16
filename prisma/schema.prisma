@@ -10,12 +10,31 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts    Account[]
+  categories  Category[]
+  debts       Debt[]
+  goals       Goal[]
+  investments Investment[]
+}
+
 model Category {
   id           String        @id @default(cuid())
-  name         String        @unique
+  name         String
   type         TransactionType
   monthlyLimit Float?        // Limite de gastos mensal
+  userId       String?
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  
+  @@unique([name, userId]) // Garante que nomes sejam únicos apenas por usuário
 }
 
 model Account {
@@ -23,6 +42,8 @@ model Account {
   name         String
   type         AccountType
   color        String?       @default("#000000")
+  userId       String?
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   investments  Investment[]
   createdAt    DateTime      @default(now())
@@ -38,8 +59,8 @@ model Transaction {
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])
   accountId   String
-  account     Account         @relation(fields: [accountId], references: [id])
-  externalId  String?         @unique // Hash para evitar duplicidade
+  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  externalId  String?         // Hash para evitar duplicidade
   
   // Novos campos para comprovantes
   payee       String?         // Recebedor
@@ -49,6 +70,8 @@ model Transaction {
   
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  
+  @@unique([externalId, accountId]) // Hash único por conta
 }
 
 model Investment {
@@ -58,7 +81,9 @@ model Investment {
   amount       Float    // Valor Investido (Custo)
   currentValue Float?   // Valor Atual de Mercado
   accountId    String
-  account      Account  @relation(fields: [accountId], references: [id])
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -69,6 +94,8 @@ model Debt {
   totalAmount Float
   paidAmount  Float    @default(0)
   dueDate     DateTime?
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -80,6 +107,8 @@ model Goal {
   currentAmount Float   @default(0)
   deadline    DateTime
   color       String?  @default("#000000")
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

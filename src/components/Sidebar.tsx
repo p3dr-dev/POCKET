@@ -2,15 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (val: boolean) => void }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    fetch('/api/user').then(res => res.json()).then(setUser).catch(() => {});
-  }, []);
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const menuItems = [
     { name: 'Dashboard', href: '/dashboard', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> },
@@ -72,9 +69,11 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean, setIsO
                 <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-[10px] font-black text-white">
                   {user?.name?.slice(0, 2).toUpperCase() || 'P'}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-gray-900 truncate">{user?.name || 'Carregando...'}</p>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{user?.status || 'Calculando...'}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-gray-900 truncate">{user?.name || 'Usuário'}</p>
+                  <button onClick={() => signOut()} className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-rose-600 transition-colors text-left">
+                    Sair
+                  </button>
                 </div>
              </div>
           </div>
