@@ -14,10 +14,6 @@ export const authConfig = {
     async jwt({ token }) {
       return token;
     },
-    authorized({ auth, request: { nextUrl } }) {
-        // Logic will be handled in middleware function, but this callback is required for edge compatibility in some versions
-        return true; 
-    }
   },
   providers: [], // Providers are configured in auth.ts for Node.js environment
   session: {
