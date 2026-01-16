@@ -2,12 +2,6 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
-  console.log(`[DIAGNOSTICO - Restore API] NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`[DIAGNOSTICO - Restore API] DATABASE_URL (raw): ${process.env.DATABASE_URL ? 'SET' : 'UNDEFINED'}`);
-  if (process.env.DATABASE_URL) {
-    console.log(`[DIAGNOSTICO - Restore API] DATABASE_URL (prefix): ${process.env.DATABASE_URL.substring(0, 10)}...`);
-  }
-  
   try {
     const data = await req.json();
     const { accounts, categories, transactions, investments, debts, goals } = data;
