@@ -16,14 +16,17 @@ async function main() {
 
   console.log('Seeding categories...');
   for (const category of categories) {
-    await prisma.category.upsert({
-      where: { name: category.name },
-      update: {},
-      create: {
-        name: category.name,
-        type: category.type as 'INCOME' | 'EXPENSE',
-      },
+    const existing = await prisma.category.findFirst({
+      where: { name: category.name }
     });
+    if (!existing) {
+      await prisma.category.create({
+        data: {
+          name: category.name,
+          type: category.type as 'INCOME' | 'EXPENSE',
+        },
+      });
+    }
   }
 
   const accounts = [
