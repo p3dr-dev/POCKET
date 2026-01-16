@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import AccountModal from '@/components/AccountModal';
 import ImportModal from '@/components/ImportModal';
 import toast from 'react-hot-toast';
+import { downloadCSV } from '@/lib/utils';
 
 interface Account {
   id: string;
@@ -69,6 +70,17 @@ export default function AccountsPage() {
     setIsModalOpen(true);
   };
 
+  const handleExport = () => {
+    const exportData = accounts.map(acc => ({
+      Nome: acc.name,
+      Tipo: acc.type,
+      Saldo: calculateBalance(acc),
+      Data_Exportacao: new Date().toLocaleDateString('pt-BR')
+    }));
+    downloadCSV(exportData, `contas_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success('Exportação concluída');
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
@@ -108,6 +120,13 @@ export default function AccountsPage() {
           </div>
           
           <div className="flex gap-2 md:gap-3">
+            <button
+              onClick={handleExport}
+              className="hidden md:flex bg-white text-black border border-gray-100 px-4 py-2.5 rounded-xl font-black text-xs items-center gap-2 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              <span>Exportar</span>
+            </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
               className="bg-emerald-50 text-emerald-600 p-3 md:px-4 md:py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-emerald-100 transition-all active:scale-95"

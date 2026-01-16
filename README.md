@@ -6,15 +6,21 @@ Ecossistema de gestão financeira focado em privacidade, inteligência local e i
 
 O POCKET foi desenhado para rodar localmente, garantindo que seus dados nunca saiam da sua máquina. Para implantar na Vercel, siga estas diretrizes:
 
-### 1. Banco de Dados (SQLite)
-A Vercel possui um sistema de arquivos efêmero. Isso significa que **os dados salvos no SQLite serão perdidos** toda vez que o servidor reiniciar ou houver um novo deploy.
-- **Recomendação:** Para uso web persistente, altere o `provider` no `schema.prisma` para `postgresql` e utilize um serviço como Supabase ou Neon.
-- **Uso Local:** Continue usando `npm run dev` para manter seus dados salvos no arquivo `dev.db`.
+### 1. Banco de Dados (Produção)
+Para manter seus dados persistentes na Vercel, recomendamos o uso do **Turso** (SQLite na borda) ou **Vercel Postgres**.
+- **Turso (Recomendado):** Mantém a compatibilidade com o motor SQLite mas oferece persistência em nuvem. 
+  1. Crie um banco no Turso.
+  2. Altere o provider para `libsql` (requer `@prisma/adapter-libsql`).
+  3. Configure a `DATABASE_URL` na Vercel.
+- **Vercel Postgres:** Altere o provider no `schema.prisma` para `postgresql`.
 
 ### 2. Inteligência Artificial (Ollama)
-A IA roda localmente. Para que a versão de produção funcione:
-- Configure a variável de ambiente `OLLAMA_URL` na Vercel apontando para o IP/URL do seu servidor Ollama (se estiver acessível externamente).
-- Por padrão, o app tentará se conectar em `http://localhost:11434`.
+A IA roda localmente por padrão. Para produção:
+- Configure a variável de ambiente `OLLAMA_URL` na Vercel.
+- Você pode utilizar um túnel (como Cloudflare Tunnel ou Ngrok) para expor seu Ollama local de forma segura para o app na Vercel.
+
+### 3. Backup e Segurança
+Utilize a aba de **Configurações** no app para exportar backups periódicos em JSON. Isso garante que você tenha seus dados mesmo em caso de falha no banco de dados de nuvem.
 
 ### 3. Variáveis de Ambiente
 Configure as seguintes variáveis na Vercel:

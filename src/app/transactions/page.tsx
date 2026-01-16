@@ -6,8 +6,12 @@ import TransactionModal from '@/components/TransactionModal';
 import TransactionTable from '@/components/transactions/TransactionTable';
 import TransactionFilters from '@/components/transactions/TransactionFilters';
 import toast from 'react-hot-toast';
+import { downloadCSV } from '@/lib/utils';
 
 interface Transaction {
+// ... existing interface ...
+// (rest of the interface stays same)
+// I will keep the imports clean and just add what's needed.
   id: string;
   description: string;
   amount: number;
@@ -46,6 +50,20 @@ export default function TransactionsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    const exportData = filteredAndSortedTransactions.map(t => ({
+      Data: new Date(t.date).toLocaleDateString('pt-BR'),
+      Descrição: t.description,
+      Valor: t.amount,
+      Tipo: t.type === 'INCOME' ? 'Receita' : 'Despesa',
+      Categoria: t.category.name,
+      Conta: t.account.name,
+      Beneficiário_Pagador: t.payee || t.payer || ''
+    }));
+    downloadCSV(exportData, `transacoes_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success('Exportação concluída');
   };
 
   useEffect(() => { fetchTransactions(); }, []);
@@ -94,14 +112,25 @@ export default function TransactionsPage() {
             <h1 className="text-xl lg:text-2xl font-black tracking-tight">Central de Transações</h1>
           </div>
           
-          <button 
-            onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} 
-            className="bg-black text-white px-5 py-3 rounded-2xl font-black hover:bg-gray-800 transition-all text-xs flex items-center gap-2 active:scale-95 shadow-xl shadow-black/10"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-            <span className="hidden sm:inline">Novo Registro</span>
-            <span className="sm:hidden">Novo</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleExport}
+              disabled={filteredAndSortedTransactions.length === 0}
+              className="bg-white text-black border border-gray-100 px-5 py-3 rounded-2xl font-black hover:bg-gray-50 transition-all text-xs flex items-center gap-2 active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+            
+            <button 
+              onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} 
+              className="bg-black text-white px-5 py-3 rounded-2xl font-black hover:bg-gray-800 transition-all text-xs flex items-center gap-2 active:scale-95 shadow-xl shadow-black/10"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+              <span className="hidden sm:inline">Novo Registro</span>
+              <span className="sm:hidden">Novo</span>
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden max-w-screen-2xl mx-auto w-full">

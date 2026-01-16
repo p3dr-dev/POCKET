@@ -51,14 +51,15 @@ model Transaction {
 }
 
 model Investment {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   // Ex: Ações, FIIs, Tesouro, Cripto
-  amount      Float
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // Ex: Ações, FIIs, Tesouro, Cripto
+  amount       Float    // Valor Investido (Custo)
+  currentValue Float?   // Valor Atual de Mercado
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Debt {
