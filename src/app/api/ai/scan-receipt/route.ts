@@ -20,13 +20,13 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     
-    // Determine extension based on file type or name
     const ext = file.type.startsWith('image/') ? 
       (file.type.includes('png') ? '.png' : '.jpg') : 
       '.pdf';
       
-    // USE /tmp for temporary files on Vercel
-    tempFilePath = path.join('/tmp', `receipt_${Date.now()}${ext}`);
+    // Forçar caminho absoluto para evitar /var/task
+    const fileName = `receipt_${Date.now()}${ext}`;
+    tempFilePath = `/tmp/${fileName}`;
     fs.writeFileSync(tempFilePath, buffer);
 
     let text = "";
@@ -35,10 +35,14 @@ export async function POST(request: Request) {
       // Process Image with Tesseract
       console.log('Processing image with OCR...');
       
-      // On Vercel, we can't rely on node_modules path for worker, Tesseract usually handles it
-      const worker = await createWorker('por');
+      // Use CDN for worker and core in production (Vercel) to avoid file system issues
+      const worker = await createWorker('por', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.0/dist/worker.min.js',
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v5.0.0/tesseract-core.wasm.js',
+      });
       
-      const ret = await worker.recognize(buffer); // Use buffer directly for images
+      const ret = await worker.recognize(buffer);
       text = ret.data.text;
       await worker.terminate();
     } else {

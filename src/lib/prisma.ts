@@ -7,18 +7,24 @@ const prismaClientSingleton = () => {
   const databaseUrl = process.env.DATABASE_URL;
   const authToken = process.env.DATABASE_AUTH_TOKEN;
 
-  // Verificação rigorosa para evitar erro de 'undefined' no build da Vercel
-  if (isProduction && databaseUrl && databaseUrl.startsWith('libsql')) {
-    console.log('🔌 Conectando ao Turso (Produção)...');
-    const libsql = createClient({
-      url: databaseUrl,
-      authToken: authToken || '',
-    });
-    const adapter = new PrismaLibSql(libsql as any);
-    return new PrismaClient({ adapter });
+  // Proteção ultra-rigorosa para build e runtime na Vercel
+  const isValidUrl = databaseUrl && databaseUrl !== "undefined" && databaseUrl.startsWith('libsql');
+
+  if (isProduction && isValidUrl) {
+    try {
+      console.log('🔌 Conectando ao Turso (Produção)...');
+      const libsql = createClient({
+        url: databaseUrl,
+        authToken: authToken || '',
+      });
+      const adapter = new PrismaLibSql(libsql as any);
+      return new PrismaClient({ adapter });
+    } catch (e) {
+      console.error('❌ Falha crítica ao inicializar adaptador Turso:', e);
+    }
   }
 
-  // Fallback para SQLite local (Desenvolvimento ou Build sem variáveis)
+  // Fallback seguro para SQLite local
   return new PrismaClient();
 };
 
