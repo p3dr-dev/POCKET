@@ -5,11 +5,9 @@ generator client {
 }
 
 datasource db {
-
-  provider = "postgresql"
-
-  url      = "postgres://d5091e5b5e1ed28e2b7b3732e44b047eada7e62eff697ffeeae87d1b63534390:sk_GpoZr-osM1bsMI6pn2Grr@db.prisma.io:5432/postgres?sslmode=require"
-
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model Category {

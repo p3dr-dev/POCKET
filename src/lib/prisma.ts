@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 const prismaClientSingleton = () => {
   const databaseUrl = process.env.DATABASE_URL; // Esta deve ser a URL do Accelerate na Vercel
 
-  console.log(`🔌 [Prisma Init] Usando DATABASE_URL: ${databaseUrl ? databaseUrl.substring(0, 10) + '...' : 'Nenhuma'}`);
+  console.log(`🔌 [Prisma Runtime Init] Usando DATABASE_URL: ${databaseUrl ? databaseUrl.substring(0, 10) + '... (Conferir Vercel Env Vars)' : 'NENHUMA URL DETECTADA'}`);
   
   const prisma = new PrismaClient({
     datasources: {
@@ -19,13 +19,14 @@ const prismaClientSingleton = () => {
   // Health Check: Tenta conectar e fazer uma query simples logo na inicialização
   prisma.$connect()
     .then(async () => {
-      console.log('✅ [Prisma Init] Conexão com o banco de dados estabelecida.');
+      console.log('✅ [Prisma Runtime Init] Conexão com o banco de dados estabelecida.');
       await prisma.$queryRaw`SELECT 1;`;
-      console.log('✅ [Prisma Init] Query de teste executada com sucesso. Tabelas OK.');
+      console.log('✅ [Prisma Runtime Init] Query de teste executada com sucesso. Tabelas OK.');
     })
     .catch((e: any) => {
-      console.error('❌ [Prisma Init] Falha na conexão ou query de teste:', e.message);
-      console.error('❌ [Prisma Init] Verifique se a DATABASE_URL está correta e se as migrações foram aplicadas.');
+      console.error('❌ [Prisma Runtime Init] FALHA CRÍTICA na conexão ou query de teste:', e.message);
+      console.error('❌ [Prisma Runtime Init] VERIFIQUE: 1. `DATABASE_URL` na Vercel (deve ser o Accelerate). 2. Restrições de IP no seu banco.');
+      if (e.stack) console.error(e.stack);
     });
 
   return prisma;
