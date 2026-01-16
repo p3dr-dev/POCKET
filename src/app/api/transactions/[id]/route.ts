@@ -19,7 +19,7 @@ export async function PUT(
         description = ${body.description}, 
         amount = ${Number(body.amount)}, 
         date = ${txDate}, 
-        type = ${body.type}, 
+        type = ${body.type}::"TransactionType", 
         "categoryId" = ${body.categoryId}, 
         "accountId" = ${body.accountId}, 
         payee = ${body.payee || null},

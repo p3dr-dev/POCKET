@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     await prisma.$executeRaw`
       INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${body.type}, ${body.color}, ${now}, ${now})
+      VALUES (${id}, ${body.name}, ${body.type}::"AccountType", ${body.color}, ${now}, ${now})
     `;
 
     return NextResponse.json({ id, name: body.name }, { status: 201 });

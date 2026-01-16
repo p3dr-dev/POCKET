@@ -14,7 +14,7 @@ export async function PUT(
 
     await prisma.$executeRaw`
       UPDATE "Account" 
-      SET name = ${body.name}, type = ${body.type}, color = ${body.color}, "updatedAt" = ${now}
+      SET name = ${body.name}, type = ${body.type}::"AccountType", color = ${body.color}, "updatedAt" = ${now}
       WHERE id = ${id}
     `;
 

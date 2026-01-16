@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       for (const cat of categories) {
         await tx.$executeRaw`
           INSERT INTO "Category" (id, name, type, "monthlyLimit")
-          VALUES (${cat.id}, ${cat.name}, ${cat.type}, ${cat.monthlyLimit})
+          VALUES (${cat.id}, ${cat.name}, ${cat.type}::"TransactionType", ${cat.monthlyLimit})
         `;
       }
 
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       for (const acc of accounts) {
         await tx.$executeRaw`
           INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt")
-          VALUES (${acc.id}, ${acc.name}, ${acc.type}, ${acc.color}, ${acc.createdAt}, ${acc.updatedAt})
+          VALUES (${acc.id}, ${acc.name}, ${acc.type}::"AccountType", ${acc.color}, ${acc.createdAt}, ${acc.updatedAt})
         `;
       }
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       for (const t of transactions) {
         await tx.$executeRaw`
           INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "externalId", payee, payer, "bankRefId", "transferId", "createdAt", "updatedAt")
-          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}, ${t.type}, ${t.categoryId}, ${t.accountId}, ${t.externalId}, ${t.payee}, ${t.payer}, ${t.bankRefId}, ${t.transferId}, ${t.createdAt}, ${t.updatedAt})
+          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}, ${t.type}::"TransactionType", ${t.categoryId}, ${t.accountId}, ${t.externalId}, ${t.payee}, ${t.payer}, ${t.bankRefId}, ${t.transferId}, ${t.createdAt}, ${t.updatedAt})
         `;
       }
 

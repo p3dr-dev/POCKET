@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
       INSERT INTO "Category" (id, name, type, "monthlyLimit") 
 
-      VALUES (${id}, ${name}, ${type}, ${monthlyLimit ? Number(monthlyLimit) : null})
+      VALUES (${id}, ${name}, ${type}::"TransactionType", ${monthlyLimit ? Number(monthlyLimit) : null})
 
     `;
 

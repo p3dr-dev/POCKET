@@ -412,7 +412,7 @@ export async function POST(request: Request) {
 
           const newId = Math.random().toString(36).substring(2, 9);
 
-          await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${newId}, ${suggestedName}, ${type})`;
+          await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${newId}, ${suggestedName}, ${type}::"TransactionType")`;
 
           category = { id: newId, name: suggestedName, type };
 
@@ -440,35 +440,35 @@ export async function POST(request: Request) {
 
                     )
 
-          VALUES (
+                    VALUES (
 
-            ${Math.random().toString(36).substring(2, 15)}, 
+                      ${Math.random().toString(36).substring(2, 15)}, 
 
-            ${tx.description}, 
+                      ${tx.description}, 
 
-            ${Math.abs(tx.amount)}, 
+                      ${Math.abs(tx.amount)}, 
 
-            ${isoDate}, 
+                      ${isoDate}, 
 
-            ${type}, 
+                      ${type}::"TransactionType", 
 
-            ${category.id}, 
+                      ${category.id}, 
 
-            ${accountId},
+                      ${accountId},
 
-            ${externalId},
+                      ${externalId},
 
-            ${tx.payee || null},
+                      ${tx.payee || null},
 
-            ${tx.payer || null},
+                      ${tx.payer || null},
 
-            ${tx.bankRefId || null},
+                      ${tx.bankRefId || null},
 
-            ${now},
+                      ${now},
 
-            ${now}
+                      ${now}
 
-          )
+                    )
 
         `;
 

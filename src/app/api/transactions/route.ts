@@ -47,13 +47,13 @@ export async function POST(request: Request) {
       const type = body.type || 'EXPENSE';
       const categoryName = 'Outros';
       
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type} LIMIT 1`;
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type}::"TransactionType" LIMIT 1`;
       
       if (existing && existing.length > 0) {
         categoryId = existing[0].id;
       } else {
         const catId = Math.random().toString(36).substring(2, 10);
-        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, ${categoryName}, ${type})`;
+        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, ${categoryName}, ${type}::"TransactionType")`;
         categoryId = catId;
       }
     }
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
       )
       VALUES (
-        ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}, ${body.type}, 
+        ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}, ${body.type}::"TransactionType", 
         ${categoryId}, ${body.accountId}, ${body.payee || null}, ${body.payer || null}, 
         ${body.bankRefId || null}, ${body.externalId || null}, ${now}, ${now}
       )

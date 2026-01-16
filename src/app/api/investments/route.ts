@@ -40,13 +40,13 @@ export async function POST(request: Request) {
 
     if (!categoryId) {
       const catId = Math.random().toString(36).substring(2, 10);
-      await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, 'Investimentos', 'EXPENSE')`;
+      await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, 'Investimentos', 'EXPENSE'::"TransactionType")`;
       categoryId = catId;
     }
 
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}, 'EXPENSE', ${categoryId}, ${accountId}, ${now}, ${now})
+      VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}, ${now})
     `;
 
     return NextResponse.json({ id: invId }, { status: 201 });
