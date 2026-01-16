@@ -47,9 +47,9 @@ export async function POST(request: Request) {
           ${description}, 
           ${Number(body.totalAmount)}, 
           ${Number(body.paidAmount || 0)}, 
-          ${dueDate}, 
-          ${now}, 
-          ${now}
+          ${dueDate}::timestamp, 
+          ${now}::timestamp, 
+          ${now}::timestamp
         )
       `;
     }

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     await prisma.$executeRaw`
       INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}, ${body.color || '#000000'}, ${now}, ${now})
+      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}::timestamp, ${body.color || '#000000'}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     return NextResponse.json({ id }, { status: 201 });

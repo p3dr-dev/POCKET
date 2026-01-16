@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     // 1. Criar o Investimento
     await prisma.$executeRaw`
       INSERT INTO "Investment" (id, name, type, amount, "currentValue", "accountId", "createdAt", "updatedAt")
-      VALUES (${invId}, ${name}, ${type}, ${Number(amount)}, ${Number(amount)}, ${accountId}, ${now}, ${now})
+      VALUES (${invId}, ${name}, ${type}, ${Number(amount)}, ${Number(amount)}, ${accountId}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     // 2. Criar Transação Automática de Saída (para refletir a compra do ativo no saldo)
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}, ${now})
+      VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}::timestamp, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     return NextResponse.json({ id: invId }, { status: 201 });

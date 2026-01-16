@@ -64,9 +64,9 @@ export async function POST(request: Request) {
         payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
       )
       VALUES (
-        ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}, ${body.type}::"TransactionType", 
+        ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}::timestamp, ${body.type}::"TransactionType", 
         ${categoryId}, ${body.accountId}, ${body.payee || null}, ${body.payer || null}, 
-        ${body.bankRefId || null}, ${body.externalId || null}, ${now}, ${now}
+        ${body.bankRefId || null}, ${body.externalId || null}, ${now}::timestamp, ${now}::timestamp
       )
     `;
 

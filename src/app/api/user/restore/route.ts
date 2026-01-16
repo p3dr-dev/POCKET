@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       for (const acc of accounts) {
         await tx.$executeRaw`
           INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt")
-          VALUES (${acc.id}, ${acc.name}, ${acc.type}::"AccountType", ${acc.color}, ${acc.createdAt}, ${acc.updatedAt})
+          VALUES (${acc.id}, ${acc.name}, ${acc.type}::"AccountType", ${acc.color}, ${acc.createdAt}::timestamp, ${acc.updatedAt}::timestamp)
         `;
       }
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       for (const t of transactions) {
         await tx.$executeRaw`
           INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "externalId", payee, payer, "bankRefId", "transferId", "createdAt", "updatedAt")
-          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}, ${t.type}::"TransactionType", ${t.categoryId}, ${t.accountId}, ${t.externalId}, ${t.payee}, ${t.payer}, ${t.bankRefId}, ${t.transferId}, ${t.createdAt}, ${t.updatedAt})
+          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}::timestamp, ${t.type}::"TransactionType", ${t.categoryId}, ${t.accountId}, ${t.externalId}, ${t.payee}, ${t.payer}, ${t.bankRefId}, ${t.transferId}, ${t.createdAt}::timestamp, ${t.updatedAt}::timestamp)
         `;
       }
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       for (const inv of investments) {
         await tx.$executeRaw`
           INSERT INTO "Investment" (id, name, type, amount, "currentValue", "accountId", "createdAt", "updatedAt")
-          VALUES (${inv.id}, ${inv.name}, ${inv.type}, ${inv.amount}, ${inv.currentValue}, ${inv.accountId}, ${inv.createdAt}, ${inv.updatedAt})
+          VALUES (${inv.id}, ${inv.name}, ${inv.type}, ${inv.amount}, ${inv.currentValue}, ${inv.accountId}, ${inv.createdAt}::timestamp, ${inv.updatedAt}::timestamp)
         `;
       }
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       for (const d of debts) {
         await tx.$executeRaw`
           INSERT INTO "Debt" (id, description, "totalAmount", "paidAmount", "dueDate", "createdAt", "updatedAt")
-          VALUES (${d.id}, ${d.description}, ${d.totalAmount}, ${d.paidAmount}, ${d.dueDate}, ${d.createdAt}, ${d.updatedAt})
+          VALUES (${d.id}, ${d.description}, ${d.totalAmount}, ${d.paidAmount}, ${d.dueDate}::timestamp, ${d.createdAt}::timestamp, ${d.updatedAt}::timestamp)
         `;
       }
 
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       for (const g of goals) {
         await tx.$executeRaw`
           INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt")
-          VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}, ${g.color}, ${g.createdAt}, ${g.updatedAt})
+          VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}::timestamp, ${g.color}, ${g.createdAt}::timestamp, ${g.updatedAt}::timestamp)
         `;
       }
     });

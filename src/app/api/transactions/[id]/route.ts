@@ -18,14 +18,14 @@ export async function PUT(
       SET 
         description = ${body.description}, 
         amount = ${Number(body.amount)}, 
-        date = ${txDate}, 
+        date = ${txDate}::timestamp, 
         type = ${body.type}::"TransactionType", 
         "categoryId" = ${body.categoryId}, 
         "accountId" = ${body.accountId}, 
         payee = ${body.payee || null},
         payer = ${body.payer || null},
         "bankRefId" = ${body.bankRefId || null},
-        "updatedAt" = ${now}
+        "updatedAt" = ${now}::timestamp
       WHERE id = ${id}
     `;
 

@@ -17,7 +17,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     await prisma.$executeRaw`
       UPDATE "Debt" 
-      SET description = ${body.description}, "totalAmount" = ${Number(body.totalAmount)}, "paidAmount" = ${Number(body.paidAmount)}, "dueDate" = ${dueDate}, "updatedAt" = ${now}
+      SET description = ${body.description}, "totalAmount" = ${Number(body.totalAmount)}, "paidAmount" = ${Number(body.paidAmount)}, "dueDate" = ${dueDate}::timestamp, "updatedAt" = ${now}::timestamp
       WHERE id = ${id}
     `;
 

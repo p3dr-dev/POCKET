@@ -11,7 +11,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     await prisma.$executeRaw`
       UPDATE "Investment" 
-      SET name = ${body.name}, type = ${body.type}, amount = ${Number(body.amount)}, "currentValue" = ${Number(body.currentValue || body.amount)}, "accountId" = ${body.accountId}, "updatedAt" = ${now}
+      SET name = ${body.name}, type = ${body.type}, amount = ${Number(body.amount)}, "currentValue" = ${Number(body.currentValue || body.amount)}, "accountId" = ${body.accountId}, "updatedAt" = ${now}::timestamp
       WHERE id = ${id}
     `;
 

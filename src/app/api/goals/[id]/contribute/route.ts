@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // 2. Atualizar o valor acumulado do objetivo
     await prisma.$executeRaw`
       UPDATE "Goal" 
-      SET "currentAmount" = "currentAmount" + ${Number(amount)}, "updatedAt" = ${now}
+      SET "currentAmount" = "currentAmount" + ${Number(amount)}, "updatedAt" = ${now}::timestamp
       WHERE id = ${id}
     `;
 
@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Aporte Objetivo: ${goal.name}`}, ${Number(amount)}, ${txDate}, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}, ${now})
+      VALUES (${txId}, ${`Aporte Objetivo: ${goal.name}`}, ${Number(amount)}, ${txDate}::timestamp, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     return NextResponse.json({ success: true });
