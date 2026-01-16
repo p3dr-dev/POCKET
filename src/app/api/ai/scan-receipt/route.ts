@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       const base64Image = buffer.toString('base64');
       const imagePrompt = `Descreva o texto contido nesta imagem. Extraia qualquer informação financeira relevante, como valores, datas, descrições, recebedores ou pagadores. Retorne apenas o texto puro da imagem.`;
       
-      const aiResponse = await askAI(imagePrompt, "Você é um assistente de visão computacional especializado em extrair texto de imagens, focando em dados financeiros.", `data:image/jpeg;base64,${base64Image}`);
+      const aiResponse = await askAI(imagePrompt, "Você é um assistente de visão computacional especializado em extrair texto de imagens, focando em dados financeiros.", base64Image);
       text = aiResponse || ''; // Se a IA não retornar texto, assume vazio
       
     } else {
