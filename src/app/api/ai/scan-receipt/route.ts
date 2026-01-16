@@ -6,6 +6,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { createWorker } from 'tesseract.js';
+import os from 'os';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +25,9 @@ export async function POST(request: Request) {
       (file.type.includes('png') ? '.png' : '.jpg') : 
       '.pdf';
       
-    // Forçar caminho absoluto para evitar /var/task
+    // Usar diretório temporário do SO (funciona em Windows e Vercel)
     const fileName = `receipt_${Date.now()}${ext}`;
-    tempFilePath = `/tmp/${fileName}`;
+    tempFilePath = path.join(os.tmpdir(), fileName);
     fs.writeFileSync(tempFilePath, buffer);
 
     let text = "";

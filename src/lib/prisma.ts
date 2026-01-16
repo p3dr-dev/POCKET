@@ -3,28 +3,30 @@ import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 
 const prismaClientSingleton = () => {
-  const isProduction = process.env.NODE_ENV === 'production';
   const databaseUrl = process.env.DATABASE_URL;
   const authToken = process.env.DATABASE_AUTH_TOKEN;
 
-  // Proteção ultra-rigorosa para build e runtime na Vercel
-  const isValidUrl = databaseUrl && databaseUrl !== "undefined" && databaseUrl.startsWith('libsql');
+  // Verificação rigorosa: deve ser string e começar com libsql: ou http: (para turso)
+  const isLibsql = typeof databaseUrl === 'string' && 
+                   databaseUrl.trim() !== '' && 
+                   (databaseUrl.startsWith('libsql:') || databaseUrl.startsWith('https:'));
 
-  if (isProduction && isValidUrl) {
+  if (isLibsql) {
     try {
-      console.log('🔌 Conectando ao Turso (Produção)...');
+      console.log('🔌 [Prisma] Conectando ao Turso...');
       const libsql = createClient({
-        url: databaseUrl,
+        url: databaseUrl as string,
         authToken: authToken || '',
       });
       const adapter = new PrismaLibSql(libsql as any);
       return new PrismaClient({ adapter });
     } catch (e) {
-      console.error('❌ Falha crítica ao inicializar adaptador Turso:', e);
+      console.error('❌ [Prisma] Erro ao inicializar Turso:', e);
     }
   }
 
-  // Fallback seguro para SQLite local
+  // Fallback para SQLite local se não houver URL válida do Turso
+  console.log('🏠 [Prisma] Usando SQLite Local');
   return new PrismaClient();
 };
 
