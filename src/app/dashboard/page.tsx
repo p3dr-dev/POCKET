@@ -6,12 +6,12 @@ import TransactionModal from '@/components/TransactionModal';
 import Sidebar from '@/components/Sidebar';
 import DailyExpensesWidget from '@/components/DailyExpensesWidget';
 import MonthlyDebtsWidget from '@/components/MonthlyDebtsWidget';
-import TransactionHistory from '@/components/dashboard/TransactionHistory';
-import AiLabWidget from '@/components/dashboard/AiLabWidget';
-import FinancialPlanner from '@/components/dashboard/FinancialPlanner';
-import CategoryBreakdown from '@/components/dashboard/CategoryBreakdown';
-import BudgetOverview from '@/components/dashboard/BudgetOverview';
-import NetWorthChart from '@/components/dashboard/NetWorthChart';
+import TransactionHistory from '@/components/dashboard_parts/TransactionHistory';
+import AiLabWidget from '@/components/dashboard_parts/AiLabWidget';
+import FinancialPlanner from '@/components/dashboard_parts/FinancialPlanner';
+import CategoryBreakdown from '@/components/dashboard_parts/CategoryBreakdown';
+import BudgetOverview from '@/components/dashboard_parts/BudgetOverview';
+import NetWorthChart from '@/components/dashboard_parts/NetWorthChart';
 import toast from 'react-hot-toast';
 
 interface Transaction {
