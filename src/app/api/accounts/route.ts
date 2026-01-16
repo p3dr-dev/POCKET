@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       const results = await Promise.all(accounts.map(async (acc) => {
         // Escapando "Transaction"
         const txs: any[] = await prisma.$queryRaw`
-          SELECT amount, type FROM "Transaction" WHERE accountId = ${acc.id}
+          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id}
         `;
         return { ...acc, transactions: txs || [] };
       }));
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(accounts);
   } catch (error) {
+    console.error('Accounts GET Error:', error);
     return NextResponse.json([]);
   }
 }

@@ -338,6 +338,81 @@ async function parseAdvancedPDF(buffer: Buffer): Promise<ParsedTransaction[]> {
   }
 }
 
+function parseCSV(text: string): ParsedTransaction[] {
+  const lines = text.split('\n');
+  const transactions: ParsedTransaction[] = [];
+  
+  // Detecção simples de cabeçalho
+  // Suporta: Data, Descrição, Valor (e variações)
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    // Tentar separar por ; ou ,
+    const parts = line.includes(';') ? line.split(';') : line.split(',');
+    if (parts.length < 3) continue;
+
+    // Tentar identificar colunas (heurística simples)
+    // Assumindo ordem comum: Data, Descrição, Valor OU Data, Valor, Descrição
+    let dateStr = parts[0].trim();
+    let description = parts[1].trim();
+    let amountStr = parts[2].trim();
+
+    // Se a 2ª coluna for valor (contém números e ponto/vírgula) e 3ª for texto
+    if (parts[1].match(/^-?[\d.,]+$/) && !parts[2].match(/^-?[\d.,]+$/)) {
+       amountStr = parts[1].trim();
+       description = parts[2].trim();
+    }
+
+    // Parse Data (DD/MM/YYYY ou YYYY-MM-DD)
+    if (dateStr.includes('/')) {
+      const [d, m, y] = dateStr.split('/');
+      dateStr = `${y}-${m}-${d}`;
+    }
+
+    // Parse Valor
+    let amount = 0;
+    try {
+      amount = parseFloat(amountStr.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    } catch {}
+
+    if (amount !== 0 && description) {
+      transactions.push({
+        date: dateStr,
+        description: description.replace(/"/g, ''),
+        amount
+      });
+    }
+  }
+  return transactions;
+}
+
+function parseOFX(text: string): ParsedTransaction[] {
+  const transactions: ParsedTransaction[] = [];
+  const bankTranList = text.split('<STMTTRN>');
+  
+  bankTranList.forEach(block => {
+    const amountMatch = block.match(/<TRNAMT>([\d.,-]+)/);
+    const dateMatch = block.match(/<DTPOSTED>(\d{8})/);
+    const memoMatch = block.match(/<MEMO>(.*)/);
+    
+    if (amountMatch && dateMatch && memoMatch) {
+      const rawDate = dateMatch[1];
+      const date = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
+      const amount = parseFloat(amountMatch[1].replace(',', '.'));
+      const description = memoMatch[1].trim();
+      
+      transactions.push({
+        date,
+        description,
+        amount
+      });
+    }
+  });
+  
+  return transactions;
+}
+
 export async function POST(request: Request) {
 
   try {
@@ -348,13 +423,20 @@ export async function POST(request: Request) {
 
     const accountId = formData.get('accountId') as string;
 
-
-
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    const transactions = await parseAdvancedPDF(buffer);
-
-
+    
+    let transactions: ParsedTransaction[] = [];
+    
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+        transactions = await parseAdvancedPDF(buffer);
+    } else if (file.name.toLowerCase().endsWith('.csv')) {
+        transactions = parseCSV(buffer.toString('utf-8'));
+    } else if (file.name.toLowerCase().endsWith('.ofx')) {
+        transactions = parseOFX(buffer.toString('utf-8'));
+    } else {
+        // Fallback: Tentar PDF se não tiver extensão
+        transactions = await parseAdvancedPDF(buffer);
+    }
 
     if (transactions.length === 0) {
 
