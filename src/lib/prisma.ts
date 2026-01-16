@@ -13,7 +13,7 @@ const prismaClientSingleton = () => {
       url: databaseUrl,
       authToken: authToken,
     });
-    const adapter = new PrismaLibSql(libsql);
+    const adapter = new PrismaLibSql(libsql as any);
     return new PrismaClient({ adapter });
   }
 
