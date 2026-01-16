@@ -8,27 +8,59 @@ export default function SettingsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     fetch('/api/user').then(res => res.json()).then(setUser).catch(() => {});
   }, []);
 
   const handleExportBackup = async () => {
-    setIsExporting(true);
+    // ... existing handleExportBackup ...
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('ATENÇÃO: Isso substituirá TODOS os dados atuais pelos dados do backup. Esta ação não pode ser desfeita. Continuar?')) {
+      e.target.value = '';
+      return;
+    }
+
+    setIsImporting(true);
+    const toastId = toast.loading('Restaurando ecossistema...');
+    
     try {
-      const res = await fetch('/api/user/backup');
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pocket_backup_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      toast.success('Backup concluído');
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target?.result as string;
+          const data = JSON.parse(content);
+
+          const res = await fetch('/api/user/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+
+          const result = await res.json();
+
+          if (res.ok) {
+            toast.success('Ecossistema restaurado!', { id: toastId });
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (err: any) {
+          toast.error('Erro ao processar arquivo: ' + err.message, { id: toastId });
+        }
+      };
+      reader.readAsText(file);
     } catch {
-      toast.error('Erro ao exportar backup');
+      toast.error('Erro na leitura do arquivo', { id: toastId });
     } finally {
-      setIsExporting(false);
+      setIsImporting(false);
+      e.target.value = '';
     }
   };
 
@@ -80,14 +112,25 @@ export default function SettingsPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                <div className={`flex items-center justify-between p-4 bg-gray-50 rounded-2xl border transition-all ${isImporting ? 'border-indigo-200 bg-indigo-50/30' : 'border-dashed border-gray-200'}`}>
                   <div>
-                    <h4 className="font-black text-sm text-gray-400">Restaurar Dados (Em breve)</h4>
-                    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Suba seu arquivo de backup para restaurar a conta</p>
+                    <h4 className={`font-black text-sm ${isImporting ? 'text-indigo-600' : 'text-gray-900'}`}>Restaurar Dados</h4>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Suba seu arquivo de backup para restaurar a conta</p>
                   </div>
-                  <button disabled className="bg-gray-200 text-gray-400 px-6 py-2.5 rounded-xl font-black text-[10px] cursor-not-allowed">
-                    Importar
-                  </button>
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={handleImportBackup} 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+                      disabled={isImporting}
+                    />
+                    <button 
+                      className={`bg-white text-black border border-gray-100 px-6 py-2.5 rounded-xl font-black text-[10px] shadow-sm transition-all active:scale-95 ${isImporting ? 'opacity-50' : 'hover:bg-gray-50'}`}
+                    >
+                      {isImporting ? 'Importando...' : 'Importar JSON'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
