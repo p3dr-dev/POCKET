@@ -1,5 +1,5 @@
-import prisma from './src/lib/prisma';
-import { askAI } from './src/lib/ai';
+import prisma from '../src/lib/prisma';
+import { askAI } from '../src/lib/ai';
 
 async function runSystemTest() {
   console.log('--- 🧪 INICIANDO TESTE DE SISTEMA POCKET ---');
