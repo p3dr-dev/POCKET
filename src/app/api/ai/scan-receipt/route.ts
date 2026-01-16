@@ -11,6 +11,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   let tempFilePath = '';
+
+  console.log(`[DIAGNOSTICO - Scan Receipt API] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[DIAGNOSTICO - Scan Receipt API] DATABASE_URL (raw): ${process.env.DATABASE_URL ? 'SET' : 'UNDEFINED'}`);
+  if (process.env.DATABASE_URL) {
+    console.log(`[DIAGNOSTICO - Scan Receipt API] DATABASE_URL (prefix): ${process.env.DATABASE_URL.substring(0, 10)}...`);
+  }
+  console.log(`[DIAGNOSTICO - Scan Receipt API] OLLAMA_URL (raw): ${process.env.OLLAMA_URL ? 'SET' : 'UNDEFINED'}`);
   
   try {
     const formData = await request.formData();
