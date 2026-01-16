@@ -7,8 +7,8 @@ export async function GET() {
   try {
     const investments = await prisma.$queryRaw`
       SELECT i.*, a.name as accountName 
-      FROM Investment i 
-      LEFT JOIN Account a ON i.accountId = a.id
+      FROM "Investment" i 
+      LEFT JOIN "Account" a ON i.accountId = a.id
       ORDER BY i.amount DESC
     `;
     return NextResponse.json(Array.isArray(investments) ? investments : []);
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     // 1. Criar o Investimento
     await prisma.$executeRaw`
-      INSERT INTO Investment (id, name, type, amount, currentValue, accountId, createdAt, updatedAt)
+      INSERT INTO "Investment" (id, name, type, amount, currentValue, accountId, createdAt, updatedAt)
       VALUES (${invId}, ${name}, ${type}, ${Number(amount)}, ${Number(amount)}, ${accountId}, ${now}, ${now})
     `;
 
@@ -35,12 +35,12 @@ export async function POST(request: Request) {
     const txDate = `${new Date().toISOString().split('T')[0]}T12:00:00.000Z`;
     
     // Buscar categoria 'Investimentos' ou fallback
-    const categories: any[] = await prisma.$queryRaw`SELECT id FROM Category WHERE name = 'Investimentos' AND type = 'EXPENSE' LIMIT 1`;
+    const categories: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Investimentos' AND type = 'EXPENSE' LIMIT 1`;
     let categoryId = categories[0]?.id;
 
     if (!categoryId) {
       const catId = Math.random().toString(36).substring(2, 10);
-      await prisma.$executeRaw`INSERT INTO Category (id, name, type) VALUES (${catId}, 'Investimentos', 'EXPENSE')`;
+      await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, 'Investimentos', 'EXPENSE')`;
       categoryId = catId;
     }
 

@@ -364,7 +364,7 @@ export async function POST(request: Request) {
 
 
 
-    const categories: { id: string, name: string, type: string }[] = await prisma.$queryRaw`SELECT * FROM Category`;
+    const categories: { id: string, name: string, type: string }[] = await prisma.$queryRaw`SELECT * FROM "Category"`;
 
     
 
@@ -412,7 +412,7 @@ export async function POST(request: Request) {
 
           const newId = Math.random().toString(36).substring(2, 9);
 
-          await prisma.$executeRaw`INSERT INTO Category (id, name, type) VALUES (${newId}, ${suggestedName}, ${type})`;
+          await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${newId}, ${suggestedName}, ${type})`;
 
           category = { id: newId, name: suggestedName, type };
 

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const includeTransactions = searchParams.get('includeTransactions') === 'true';
 
     const accounts: any[] = await prisma.$queryRaw`
-      SELECT * FROM Account ORDER BY name ASC
+      SELECT * FROM "Account" ORDER BY name ASC
     `;
 
     if (!Array.isArray(accounts)) return NextResponse.json([]);
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     await prisma.$executeRaw`
-      INSERT INTO Account (id, name, type, color, createdAt, updatedAt)
-      VALUES (${id}, ${body.name}, ${body.type}, ${body.color || '#000000'}, ${now}, ${now})
+      INSERT INTO "Account" (id, name, type, color, createdAt, updatedAt)
+      VALUES (${id}, ${body.name}, ${body.type}, ${body.color}, ${now}, ${now})
     `;
 
     return NextResponse.json({ id, name: body.name }, { status: 201 });

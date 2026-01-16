@@ -13,7 +13,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const deadline = new Date(dateStr).toISOString();
 
     await prisma.$executeRaw`
-      UPDATE Goal 
+      UPDATE "Goal" 
       SET name = ${body.name}, targetAmount = ${Number(body.targetAmount)}, currentAmount = ${Number(body.currentAmount)}, deadline = ${deadline}, color = ${body.color}, updatedAt = ${now}
       WHERE id = ${id}
     `;
@@ -27,7 +27,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await prisma.$executeRaw`DELETE FROM Goal WHERE id = ${id}`;
+    await prisma.$executeRaw`DELETE FROM "Goal" WHERE id = ${id}`;
     return NextResponse.json({ message: 'Excluído' });
   } catch (error) {
     return NextResponse.json({ message: 'Erro ao excluir' }, { status: 500 });

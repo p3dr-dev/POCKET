@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     
     const cleanDesc = description || "Transferência entre contas";
 
-    const categories: any[] = await prisma.$queryRaw`SELECT id FROM Category WHERE name = 'Outros' OR name = 'Transferência' LIMIT 1`;
+    const categories: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Outros' OR name = 'Transferência' LIMIT 1`;
     const categoryId = categories[0]?.id;
 
     // 1. Criar Transação de SAÍDA (Origem)

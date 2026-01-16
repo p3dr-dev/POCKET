@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     // so we build the query or use a loop. Since it's local, a loop or joining strings is fine.
     // Given the "Regra de Ouro" to use raw SQL:
     await Promise.all(ids.map(id => 
-      prisma.$executeRaw`DELETE FROM Debt WHERE id = ${id}`
+      prisma.$executeRaw`DELETE FROM "Debt" WHERE id = ${id}`
     ));
 
     return NextResponse.json({ success: true });

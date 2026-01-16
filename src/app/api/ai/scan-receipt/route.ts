@@ -48,8 +48,8 @@ export async function POST(request: Request) {
     if (!text || text.length < 10) return NextResponse.json({ message: 'Não foi possível ler o comprovante (Texto insuficiente ou IA não retornou)' }, { status: 400 });
 
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM Category`,
-      prisma.$queryRaw`SELECT id, name FROM Account`
+      prisma.$queryRaw`SELECT id, name FROM "Category"`,
+      prisma.$queryRaw`SELECT id, name FROM "Account"`
     ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
 
     const categoryList = categories.map(c => c.name).join(', ');

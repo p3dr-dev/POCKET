@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     await prisma.$executeRaw`
 
-      INSERT INTO Category (id, name, type, monthlyLimit) 
+      INSERT INTO "Category" (id, name, type, monthlyLimit) 
 
       VALUES (${id}, ${name}, ${type}, ${monthlyLimit ? Number(monthlyLimit) : null})
 
@@ -69,7 +69,7 @@ export async function PUT(request: Request) {
 
     await prisma.$executeRaw`
 
-      UPDATE Category 
+      UPDATE "Category" 
 
       SET name = ${name}, monthlyLimit = ${monthlyLimit ? Number(monthlyLimit) : null}
 

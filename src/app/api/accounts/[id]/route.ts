@@ -42,7 +42,7 @@ export async function DELETE(
     }
 
     await prisma.$executeRaw`
-      DELETE FROM Account WHERE id = ${id}
+      DELETE FROM "Account" WHERE id = ${id}
     `;
     
     return NextResponse.json({ message: 'Conta excluída' });

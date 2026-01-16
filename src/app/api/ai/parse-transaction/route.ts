@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     
     // Obter categorias e contas reais para a IA fazer o match
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM Category`,
-      prisma.$queryRaw`SELECT id, name FROM Account`
+      prisma.$queryRaw`SELECT id, name FROM "Category"`,
+      prisma.$queryRaw`SELECT id, name FROM "Account"`
     ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
 
     const categoryNames = categories.map(c => c.name).join(', ');

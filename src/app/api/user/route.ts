@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     // Buscar total de contas e saldo líquido real
-    const accounts: any[] = await prisma.$queryRaw`SELECT id FROM Account`;
+    const accounts: any[] = await prisma.$queryRaw`SELECT id FROM "Account"`;
     
     const transactions: any[] = await prisma.$queryRaw`
       SELECT 

@@ -6,12 +6,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const [accounts, categories, transactions, investments, debts, goals] = await Promise.all([
-      prisma.$queryRaw`SELECT * FROM Account`,
-      prisma.$queryRaw`SELECT * FROM Category`,
+      prisma.$queryRaw`SELECT * FROM "Account"`,
+      prisma.$queryRaw`SELECT * FROM "Category"`,
       prisma.$queryRaw`SELECT * FROM "Transaction"`,
-      prisma.$queryRaw`SELECT * FROM Investment`,
-      prisma.$queryRaw`SELECT * FROM Debt`,
-      prisma.$queryRaw`SELECT * FROM Goal`
+      prisma.$queryRaw`SELECT * FROM "Investment"`,
+      prisma.$queryRaw`SELECT * FROM "Debt"`,
+      prisma.$queryRaw`SELECT * FROM "Goal"`
     ]);
 
     const data = {

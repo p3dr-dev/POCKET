@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const debts = await prisma.$queryRaw`SELECT * FROM Debt ORDER BY dueDate ASC`;
+    const debts = await prisma.$queryRaw`SELECT * FROM "Debt" ORDER BY dueDate ASC`;
     return NextResponse.json(Array.isArray(debts) ? debts : []);
   } catch (error) {
     return NextResponse.json([]);
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       }
 
       await prisma.$executeRaw`
-        INSERT INTO Debt (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
+        INSERT INTO "Debt" (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
         VALUES (
           ${id}, 
           ${description}, 

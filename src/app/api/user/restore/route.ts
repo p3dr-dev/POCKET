@@ -10,16 +10,16 @@ export async function POST(req: Request) {
     await prisma.$transaction(async (tx) => {
       // 1. Limpar dados existentes (Ordem inversa das chaves estrangeiras)
       await tx.$executeRaw`DELETE FROM "Transaction"`;
-      await tx.$executeRaw`DELETE FROM Investment`;
-      await tx.$executeRaw`DELETE FROM Debt`;
-      await tx.$executeRaw`DELETE FROM Goal`;
-      await tx.$executeRaw`DELETE FROM Account`;
-      await tx.$executeRaw`DELETE FROM Category`;
+      await tx.$executeRaw`DELETE FROM "Investment"`;
+      await tx.$executeRaw`DELETE FROM "Debt"`;
+      await tx.$executeRaw`DELETE FROM "Goal"`;
+      await tx.$executeRaw`DELETE FROM "Account"`;
+      await tx.$executeRaw`DELETE FROM "Category"`;
 
       // 2. Restaurar Categorias
       for (const cat of categories) {
         await tx.$executeRaw`
-          INSERT INTO Category (id, name, type, monthlyLimit)
+          INSERT INTO "Category" (id, name, type, monthlyLimit)
           VALUES (${cat.id}, ${cat.name}, ${cat.type}, ${cat.monthlyLimit})
         `;
       }
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       // 3. Restaurar Contas
       for (const acc of accounts) {
         await tx.$executeRaw`
-          INSERT INTO Account (id, name, type, color, createdAt, updatedAt)
+          INSERT INTO "Account" (id, name, type, color, createdAt, updatedAt)
           VALUES (${acc.id}, ${acc.name}, ${acc.type}, ${acc.color}, ${acc.createdAt}, ${acc.updatedAt})
         `;
       }
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       // 5. Restaurar Investimentos
       for (const inv of investments) {
         await tx.$executeRaw`
-          INSERT INTO Investment (id, name, type, amount, currentValue, accountId, createdAt, updatedAt)
+          INSERT INTO "Investment" (id, name, type, amount, currentValue, accountId, createdAt, updatedAt)
           VALUES (${inv.id}, ${inv.name}, ${inv.type}, ${inv.amount}, ${inv.currentValue}, ${inv.accountId}, ${inv.createdAt}, ${inv.updatedAt})
         `;
       }
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       // 6. Restaurar Dívidas
       for (const d of debts) {
         await tx.$executeRaw`
-          INSERT INTO Debt (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
+          INSERT INTO "Debt" (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
           VALUES (${d.id}, ${d.description}, ${d.totalAmount}, ${d.paidAmount}, ${d.dueDate}, ${d.createdAt}, ${d.updatedAt})
         `;
       }
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       // 7. Restaurar Objetivos
       for (const g of goals) {
         await tx.$executeRaw`
-          INSERT INTO Goal (id, name, targetAmount, currentAmount, deadline, color, createdAt, updatedAt)
+          INSERT INTO "Goal" (id, name, targetAmount, currentAmount, deadline, color, createdAt, updatedAt)
           VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}, ${g.color}, ${g.createdAt}, ${g.updatedAt})
         `;
       }

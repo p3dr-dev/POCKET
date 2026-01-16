@@ -10,15 +10,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!amount || !accountId) return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
 
     // 1. Buscar o objetivo e a categoria 'Objetivos' ou 'Outros'
-    const [goal]: any[] = await prisma.$queryRaw`SELECT * FROM Goal WHERE id = ${id} LIMIT 1`;
+    const [goal]: any[] = await prisma.$queryRaw`SELECT * FROM "Goal" WHERE id = ${id} LIMIT 1`;
     if (!goal) return NextResponse.json({ message: 'Objetivo não encontrado' }, { status: 404 });
 
-    const [category]: any[] = await prisma.$queryRaw`SELECT id FROM Category WHERE name = 'Objetivos' OR name = 'Investimentos' LIMIT 1`;
+    const [category]: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Objetivos' OR name = 'Investimentos' LIMIT 1`;
     const categoryId = category?.id;
 
     // 2. Atualizar o valor acumulado do objetivo
     await prisma.$executeRaw`
-      UPDATE Goal 
+      UPDATE "Goal" 
       SET currentAmount = currentAmount + ${Number(amount)}, updatedAt = ${now}
       WHERE id = ${id}
     `;

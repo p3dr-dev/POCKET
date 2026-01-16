@@ -11,8 +11,8 @@ export async function GET() {
         c.name as categoryName, 
         a.name as accountName
       FROM "Transaction" t
-      LEFT JOIN Category c ON t.categoryId = c.id
-      LEFT JOIN Account a ON t.accountId = a.id
+      LEFT JOIN "Category" c ON t.categoryId = c.id
+      LEFT JOIN "Account" a ON t.accountId = a.id
       ORDER BY t.date DESC
     `;
 
@@ -47,13 +47,13 @@ export async function POST(request: Request) {
       const type = body.type || 'EXPENSE';
       const categoryName = 'Outros';
       
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM Category WHERE name = ${categoryName} AND type = ${type} LIMIT 1`;
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type} LIMIT 1`;
       
       if (existing && existing.length > 0) {
         categoryId = existing[0].id;
       } else {
         const catId = Math.random().toString(36).substring(2, 10);
-        await prisma.$executeRaw`INSERT INTO Category (id, name, type) VALUES (${catId}, ${categoryName}, ${type})`;
+        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, ${categoryName}, ${type})`;
         categoryId = catId;
       }
     }
