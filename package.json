@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "npx prisma generate",
+    "db:push": "npx prisma db push",
+    "db:generate": "npx prisma generate",
+    "db:deploy": "set DATABASE_URL=%PRISMA_DATABASE_URL% && npx prisma db push --accept-data-loss"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
@@ -31,6 +34,7 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.9.14",
+    "dotenv-cli": "^7.6.0",
     "eslint": "^9",
     "eslint-config-next": "^16.1.2",
     "postcss": "^8.5.6",

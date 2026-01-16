@@ -4,11 +4,20 @@ import * as dotenv from 'dotenv';
 dotenv.config(); // Carrega as variáveis de ambiente no início
 
 const prismaClientSingleton = () => {
-  // A conexão é gerenciada pelo schema.prisma agora.
-  // Se DATABASE_URL estiver setado, ele usará.
-  // Caso contrário, usará o default do schema.prisma (file:./dev.db)
-  console.log('🔌 [Prisma] Inicializando Cliente Padrão...');
-  return new PrismaClient();
+  const databaseUrl = process.env.DATABASE_URL; // URL direta para db push e fallback
+  const accelerateUrl = process.env.PRISMA_ACCELERATE_ENDPOINT; // URL do Accelerate para a aplicação
+
+  // Prioriza Accelerate se disponível
+  const finalUrl = accelerateUrl || databaseUrl;
+
+  console.log(`🔌 [Prisma] Usando URL: ${finalUrl ? finalUrl.substring(0, 10) + '...' : 'Nenhuma'}`);
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: finalUrl,
+      },
+    },
+  });
 };
 
 declare global {
