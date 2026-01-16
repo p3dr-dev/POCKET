@@ -7,7 +7,7 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const categories = await prisma.$queryRaw`
-      SELECT * FROM Category ORDER BY name ASC
+      SELECT * FROM "Category" ORDER BY name ASC
     `;
     return NextResponse.json(Array.isArray(categories) ? categories : []);
   } catch (error) {
