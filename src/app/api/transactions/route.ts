@@ -8,8 +8,8 @@ export async function GET() {
     const transactions = await prisma.$queryRaw`
       SELECT 
         t.*, 
-        c.name as categoryName, 
-        a.name as accountName
+        c.name as "categoryName", 
+        a.name as "accountName"
       FROM "Transaction" t
       LEFT JOIN "Category" c ON t."categoryId" = c.id
       LEFT JOIN "Account" a ON t."accountId" = a.id

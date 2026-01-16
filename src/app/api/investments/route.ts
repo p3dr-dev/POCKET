@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const investments = await prisma.$queryRaw`
-      SELECT i.*, a.name as accountName 
+      SELECT i.*, a.name as "accountName" 
       FROM "Investment" i 
       LEFT JOIN "Account" a ON i."accountId" = a.id
       ORDER BY i.amount DESC

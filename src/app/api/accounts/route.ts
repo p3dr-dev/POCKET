@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const accounts: any[] = await prisma.$queryRaw`
       SELECT a.*, 
         (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance,
-        (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as investmentTotal
+        (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as "investmentTotal"
       FROM "Account" a
     `;
 

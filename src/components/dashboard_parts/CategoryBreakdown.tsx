@@ -23,7 +23,7 @@ export default function CategoryBreakdown({ transactions }: { transactions: Tran
     const totalExpense = expenses.reduce((acc, t) => acc + t.amount, 0);
 
     const grouped = expenses.reduce((acc, t) => {
-      const cat = t.category.name;
+      const cat = t.category?.name || 'Outros';
       acc[cat] = (acc[cat] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
