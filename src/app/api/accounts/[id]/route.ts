@@ -13,8 +13,8 @@ export async function PUT(
     const now = new Date().toISOString();
 
     await prisma.$executeRaw`
-      UPDATE Account 
-      SET name = ${body.name}, type = ${body.type}, color = ${body.color}, updatedAt = ${now}
+      UPDATE "Account" 
+      SET name = ${body.name}, type = ${body.type}, color = ${body.color}, "updatedAt" = ${now}
       WHERE id = ${id}
     `;
 
@@ -34,7 +34,7 @@ export async function DELETE(
     
     // Escapando "Transaction"
     const txs: any[] = await prisma.$queryRaw`
-      SELECT id FROM "Transaction" WHERE accountId = ${id} LIMIT 1
+      SELECT id FROM "Transaction" WHERE "accountId" = ${id} LIMIT 1
     `;
 
     if (txs.length > 0) {

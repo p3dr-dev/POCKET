@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const deadline = new Date(dateStr).toISOString();
 
     await prisma.$executeRaw`
-      INSERT INTO "Goal" (id, name, targetAmount, currentAmount, deadline, color, createdAt, updatedAt)
+      INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt")
       VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}, ${body.color || '#000000'}, ${now}, ${now})
     `;
 

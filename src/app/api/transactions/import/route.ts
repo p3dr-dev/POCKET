@@ -396,7 +396,7 @@ export async function POST(request: Request) {
 
 
 
-      const existing: { id: string }[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE externalId = ${externalId} LIMIT 1`;
+      const existing: { id: string }[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} LIMIT 1`;
 
 
 
@@ -432,13 +432,13 @@ export async function POST(request: Request) {
 
         await prisma.$executeRaw`
 
-          INSERT INTO "Transaction" (
+                    INSERT INTO "Transaction" (
 
-            id, description, amount, date, type, categoryId, accountId, externalId, 
+                      id, description, amount, date, type, "categoryId", "accountId", "externalId", 
 
-            payee, payer, bankRefId, createdAt, updatedAt
+                      payee, payer, "bankRefId", "createdAt", "updatedAt"
 
-          )
+                    )
 
           VALUES (
 

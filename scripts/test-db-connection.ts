@@ -6,8 +6,8 @@ async function runSystemTest() {
 
   // 1. Teste de Banco de Dados
   try {
-    const categories: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM Category`;
-    const accounts: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM Account`;
+    const categories: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM "Category"`;
+    const accounts: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM "Account"`;
     console.log('✅ Banco de Dados: Conectado');
     console.log(`📊 Estrutura: ${categories[0].count} categorias, ${accounts[0].count} contas detectadas.`);
   } catch (err: any) {

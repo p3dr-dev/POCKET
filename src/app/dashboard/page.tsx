@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import SummaryCard from '@/components/SummaryCard';
-import TransactionModal from '@/components/TransactionModal';
+import TransactionModal from '@/components/modals/TransactionModal';
 import Sidebar from '@/components/Sidebar';
-import DailyExpensesWidget from '@/components/DailyExpensesWidget';
-import MonthlyDebtsWidget from '@/components/MonthlyDebtsWidget';
+import DailyExpensesWidget from '@/components/widgets/DailyExpensesWidget';
+import MonthlyDebtsWidget from '@/components/widgets/MonthlyDebtsWidget';
 import TransactionHistory from '@/components/dashboard_parts/TransactionHistory';
 import AiLabWidget from '@/components/dashboard_parts/AiLabWidget';
 import FinancialPlanner from '@/components/dashboard_parts/FinancialPlanner';

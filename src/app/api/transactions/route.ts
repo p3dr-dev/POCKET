@@ -11,8 +11,8 @@ export async function GET() {
         c.name as categoryName, 
         a.name as accountName
       FROM "Transaction" t
-      LEFT JOIN "Category" c ON t.categoryId = c.id
-      LEFT JOIN "Account" a ON t.accountId = a.id
+      LEFT JOIN "Category" c ON t."categoryId" = c.id
+      LEFT JOIN "Account" a ON t."accountId" = a.id
       ORDER BY t.date DESC
     `;
 
@@ -60,8 +60,8 @@ export async function POST(request: Request) {
 
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (
-        id, description, amount, date, type, categoryId, accountId, 
-        payee, payer, bankRefId, externalId, createdAt, updatedAt
+        id, description, amount, date, type, "categoryId", "accountId", 
+        payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
       )
       VALUES (
         ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}, ${body.type}, 

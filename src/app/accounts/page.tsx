@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import AccountModal from '@/components/AccountModal';
-import ImportModal from '@/components/ImportModal';
+import AccountModal from '@/components/modals/AccountModal';
+import ImportModal from '@/components/modals/ImportModal';
 import toast from 'react-hot-toast';
 import { downloadCSV } from '@/lib/utils';
 

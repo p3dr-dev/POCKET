@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     // Verificar duplicidade antes de processar
     if (externalId) {
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE externalId = ${externalId} LIMIT 1`;
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} LIMIT 1`;
       if (existing.length > 0) {
         return NextResponse.json({ message: 'Esta transferência já foi registrada.' }, { status: 400 });
       }
@@ -44,14 +44,14 @@ export async function POST(request: Request) {
     // 1. Criar Transação de SAÍDA (Origem)
     const idOrigem = Math.random().toString(36).substring(2, 15);
     await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, categoryId, accountId, transferId, payee, payer, bankRefId, externalId, createdAt, updatedAt)
+      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
       VALUES (${idOrigem}, ${'Saída: ' + cleanDesc}, ${Number(amount)}, ${txDate}, 'EXPENSE', ${categoryId}, ${fromAccountId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? externalId + '_out' : null}, ${now}, ${now})
     `;
 
     // 2. Criar Transação de ENTRADA (Destino)
     const idDestino = Math.random().toString(36).substring(2, 15);
     await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, categoryId, accountId, transferId, payee, payer, bankRefId, externalId, createdAt, updatedAt)
+      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
       VALUES (${idDestino}, ${'Entrada: ' + cleanDesc}, ${Number(amount)}, ${txDate}, 'INCOME', ${categoryId}, ${toAccountId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? externalId + '_in' : null}, ${now}, ${now})
     `;
 

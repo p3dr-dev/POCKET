@@ -8,7 +8,7 @@ export async function GET() {
     const investments = await prisma.$queryRaw`
       SELECT i.*, a.name as accountName 
       FROM "Investment" i 
-      LEFT JOIN "Account" a ON i.accountId = a.id
+      LEFT JOIN "Account" a ON i."accountId" = a.id
       ORDER BY i.amount DESC
     `;
     return NextResponse.json(Array.isArray(investments) ? investments : []);
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     // 1. Criar o Investimento
     await prisma.$executeRaw`
-      INSERT INTO "Investment" (id, name, type, amount, currentValue, accountId, createdAt, updatedAt)
+      INSERT INTO "Investment" (id, name, type, amount, "currentValue", "accountId", "createdAt", "updatedAt")
       VALUES (${invId}, ${name}, ${type}, ${Number(amount)}, ${Number(amount)}, ${accountId}, ${now}, ${now})
     `;
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, categoryId, accountId, createdAt, updatedAt)
+      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "createdAt", "updatedAt")
       VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}, 'EXPENSE', ${categoryId}, ${accountId}, ${now}, ${now})
     `;
 

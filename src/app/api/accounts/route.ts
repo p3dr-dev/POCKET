@@ -9,7 +9,10 @@ export async function GET(request: Request) {
     const includeTransactions = searchParams.get('includeTransactions') === 'true';
 
     const accounts: any[] = await prisma.$queryRaw`
-      SELECT * FROM "Account" ORDER BY name ASC
+      SELECT a.*, 
+        (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance,
+        (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as investmentTotal
+      FROM "Account" a
     `;
 
     if (!Array.isArray(accounts)) return NextResponse.json([]);
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     await prisma.$executeRaw`
-      INSERT INTO "Account" (id, name, type, color, createdAt, updatedAt)
+      INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt")
       VALUES (${id}, ${body.name}, ${body.type}, ${body.color}, ${now}, ${now})
     `;
 

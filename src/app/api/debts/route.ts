@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       }
 
       await prisma.$executeRaw`
-        INSERT INTO "Debt" (id, description, totalAmount, paidAmount, dueDate, createdAt, updatedAt)
+        INSERT INTO "Debt" (id, description, "totalAmount", "paidAmount", "dueDate", "createdAt", "updatedAt")
         VALUES (
           ${id}, 
           ${description}, 

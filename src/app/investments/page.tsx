@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import InvestmentModal from '@/components/InvestmentModal';
+import InvestmentModal from '@/components/modals/InvestmentModal';
 import toast from 'react-hot-toast';
 
 interface Investment {

@@ -20,12 +20,12 @@ export async function PUT(
         amount = ${Number(body.amount)}, 
         date = ${txDate}, 
         type = ${body.type}, 
-        categoryId = ${body.categoryId}, 
-        accountId = ${body.accountId}, 
+        "categoryId" = ${body.categoryId}, 
+        "accountId" = ${body.accountId}, 
         payee = ${body.payee || null},
         payer = ${body.payer || null},
-        bankRefId = ${body.bankRefId || null},
-        updatedAt = ${now}
+        "bankRefId" = ${body.bankRefId || null},
+        "updatedAt" = ${now}
       WHERE id = ${id}
     `;
 

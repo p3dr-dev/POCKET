@@ -8,7 +8,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     
     // Apagar todas as transações vinculadas a esta conta
-    await prisma.$executeRaw`DELETE FROM "Transaction" WHERE accountId = ${id}`;
+    await prisma.$executeRaw`DELETE FROM "Transaction" WHERE "accountId" = ${id}`;
 
     return NextResponse.json({ message: 'Conta zerada com sucesso' });
   } catch (error) {

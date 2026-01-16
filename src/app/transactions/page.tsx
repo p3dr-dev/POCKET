@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
-import TransactionModal from '@/components/TransactionModal';
+import TransactionModal from '@/components/modals/TransactionModal';
 import TransactionTable from '@/components/transactions_parts/TransactionTable';
 import TransactionFilters from '@/components/transactions_parts/TransactionFilters';
 import toast from 'react-hot-toast';

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import DebtModal from '@/components/DebtModal';
-import DebtPaymentModal from '@/components/DebtPaymentModal';
+import DebtModal from '@/components/modals/DebtModal';
+import DebtPaymentModal from '@/components/modals/DebtPaymentModal';
 import toast from 'react-hot-toast';
 
 interface Debt {

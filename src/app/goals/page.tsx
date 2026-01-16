@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import GoalModal from '@/components/GoalModal';
+import GoalModal from '@/components/modals/GoalModal';
 import toast from 'react-hot-toast';
 
 interface Goal {
