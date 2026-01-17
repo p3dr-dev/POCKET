@@ -28,9 +28,6 @@ export default function DailyExpensesWidget({ transactions }: { transactions: Tr
     }, {} as Record<number, number>);
 
     // 3. Preencher array de dados (dias 1..31)
-    // Para simplificar e ficar bonito, vamos pegar os últimos 7 dias ou o mês todo?
-    // Mês todo pode ficar apertado. Vamos mostrar o mês todo mas com scroll se precisar ou apenas barras finas.
-    // Melhor: Mês todo.
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const data = [];
     let maxAmount = 0;
