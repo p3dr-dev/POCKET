@@ -71,7 +71,7 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean, setIsO
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-gray-900 truncate">{user?.name || 'Usuário'}</p>
-                  <button onClick={() => signOut()} className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-rose-600 transition-colors text-left">
+                  <button onClick={() => signOut({ redirectTo: '/login' })} className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-rose-600 transition-colors text-left">
                     Sair
                   </button>
                 </div>
