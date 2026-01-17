@@ -231,10 +231,9 @@ export default function Dashboard() {
               <CategoryBreakdown transactions={transactions} />
             </div>
 
-            {/* Bottom Section: History, AI, Debts & Daily Expenses */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-               {/* Left Column: AI, Budgets & Debts */}
-               <div className="space-y-8 order-2 xl:order-1">
+            {/* Widgets Section: AI, Budgets & Debts */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+               <div className="space-y-8">
                  <AiLabWidget 
                    insight={aiInsight} 
                    isLoading={isAiLoading} 
@@ -242,25 +241,27 @@ export default function Dashboard() {
                    onClear={() => setAiInsight(null)} 
                  />
                  <BudgetOverview transactions={transactions} categories={categories} />
+               </div>
+               <div className="space-y-8">
                  <DailyExpensesWidget transactions={transactions} />
                  <div className="h-[450px]">
                    <MonthlyDebtsWidget debts={debts} />
                  </div>
                </div>
+            </div>
 
-               {/* Right Column: Transaction History */}
-               <div className="xl:col-span-2 order-1 xl:order-2 h-[600px] xl:h-[1000px]">
-                  <TransactionHistory 
-                    transactions={transactions}
-                    isLoading={isLoading}
-                    selectedIds={selectedIds}
-                    onToggleSelect={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-                    onDeleteBulk={handleDeleteBulk}
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    onEdit={(t) => { setEditingTransaction(t); setIsModalOpen(true); }}
-                  />
-               </div>
+            {/* Bottom Section: Transaction History */}
+            <div className="h-[800px]">
+              <TransactionHistory 
+                transactions={transactions}
+                isLoading={isLoading}
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+                onDeleteBulk={handleDeleteBulk}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onEdit={(t) => { setEditingTransaction(t); setIsModalOpen(true); }}
+              />
             </div>
           </div>
         </div>
