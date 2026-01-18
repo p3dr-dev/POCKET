@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
     }
 
+    const userId = session.user.id;
     const transferId = Math.random().toString(36).substring(2, 15);
     const txDate = new Date(date);
     const cleanDesc = description || "Transferência entre contas";
@@ -34,12 +35,12 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       // 1. Garantir Categoria
       let category = await tx.category.findFirst({
-        where: { name: 'Transferências', userId: session.user.id }
+        where: { name: 'Transferências', userId: userId }
       });
 
       if (!category) {
         category = await tx.category.create({
-          data: { name: 'Transferências', type: 'EXPENSE', userId: session.user.id }
+          data: { name: 'Transferências', type: 'EXPENSE', userId: userId }
         });
       }
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
           date: txDate,
           categoryId: category.id,
           accountId: fromAccountId,
+          userId: userId,
           transferId,
           payee,
           payer,
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
           date: txDate,
           categoryId: category.id,
           accountId: toAccountId,
+          userId: userId,
           transferId,
           payee,
           payer,

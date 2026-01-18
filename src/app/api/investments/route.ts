@@ -38,6 +38,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
     }
 
+    const userId = session.user.id;
+
     // Usar transação para atomicidade
     await prisma.$transaction(async (tx) => {
       // 1. Criar Investimento
@@ -48,19 +50,19 @@ export async function POST(request: Request) {
           amount: Number(amount),
           currentValue: Number(currentValue || amount),
           accountId,
-          userId: session.user.id
+          userId: userId
         }
       });
 
       // 2. Criar Transação de Saída (se solicitado)
       if (createTransaction) {
         let category = await tx.category.findFirst({
-          where: { name: 'Investimentos', type: 'EXPENSE', userId: session.user.id }
+          where: { name: 'Investimentos', type: 'EXPENSE', userId: userId }
         });
 
         if (!category) {
           category = await tx.category.create({
-            data: { name: 'Investimentos', type: 'EXPENSE', userId: session.user.id }
+            data: { name: 'Investimentos', type: 'EXPENSE', userId: userId }
           });
         }
 
@@ -71,7 +73,8 @@ export async function POST(request: Request) {
             type: 'EXPENSE',
             date: new Date(),
             categoryId: category.id,
-            accountId: accountId
+            accountId: accountId,
+            userId: userId
           }
         });
       }
