@@ -13,14 +13,15 @@ export async function PUT(
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const { name, monthlyLimit } = await request.json();
+    const { name, monthlyLimit, color } = await request.json();
     const userId = session.user.id;
 
     const category = await prisma.category.update({
       where: { id, userId },
       data: {
         name,
-        monthlyLimit: monthlyLimit ? Number(monthlyLimit) : null
+        color: color || undefined,
+        monthlyLimit: monthlyLimit !== undefined ? (monthlyLimit ? Number(monthlyLimit) : null) : undefined
       }
     });
 

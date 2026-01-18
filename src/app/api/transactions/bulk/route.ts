@@ -17,9 +17,22 @@ export async function POST(request: Request) {
 
     const userId = session.user.id;
     
+    // Buscar os transferIds das transações que serão deletadas
+    const transactions = await prisma.transaction.findMany({
+      where: { id: { in: ids }, userId },
+      select: { transferId: true }
+    });
+
+    const transferIds = transactions
+      .map(t => t.transferId)
+      .filter((id): id is string => id !== null);
+
     const result = await prisma.transaction.deleteMany({
       where: {
-        id: { in: ids },
+        OR: [
+          { id: { in: ids } },
+          { transferId: { in: transferIds } }
+        ],
         userId
       }
     });

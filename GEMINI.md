@@ -16,7 +16,7 @@ Este documento serve como o mapa mestre e guia de diretrizes para o desenvolvime
 - **Hospedagem & CI/CD:** **Vercel** integrado ao **GitHub**.
 - **ORM:** **Prisma ORM**.
 - **Inteligência Artificial:** **Ollama** (Modelo: `gemini-3-flash-preview`).
-- **Processamento de PDF:** **pdfjs-dist** (via script isolado para extração robusta).
+- **Processamento de PDF:** **pdf-parse** (via script isolado para extração robusta).
 
 ## 3. Arquitetura e Restrições Críticas
 

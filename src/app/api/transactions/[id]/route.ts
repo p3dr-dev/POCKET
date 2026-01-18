@@ -57,9 +57,27 @@ export async function DELETE(
     const { id } = await params;
     const userId = session.user.id;
     
-    await prisma.transaction.delete({
-      where: { id, userId }
+    // Buscar a transação primeiro para ver se é uma transferência
+    const transaction = await prisma.transaction.findUnique({
+      where: { id, userId },
+      select: { transferId: true }
     });
+
+    if (!transaction) {
+       return NextResponse.json({ message: 'Transação não encontrada' }, { status: 404 });
+    }
+
+    if (transaction.transferId) {
+      // Se for transferência, deletar o par
+      await prisma.transaction.deleteMany({
+        where: { transferId: transaction.transferId, userId }
+      });
+    } else {
+      // Deletar apenas a transação individual
+      await prisma.transaction.delete({
+        where: { id, userId }
+      });
+    }
 
     return NextResponse.json({ message: 'Transação excluída' });
   } catch (error: any) {

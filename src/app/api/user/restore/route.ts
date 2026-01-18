@@ -27,11 +27,19 @@ export async function POST(req: Request) {
       // 2. Restaurar Categorias
       if (categories && Array.isArray(categories)) {
         for (const cat of categories) {
-          await tx.category.create({
-            data: {
+          await tx.category.upsert({
+            where: { id: cat.id },
+            update: {
+              name: cat.name,
+              type: cat.type,
+              color: cat.color || '#000000',
+              monthlyLimit: cat.monthlyLimit
+            },
+            create: {
               id: cat.id,
               name: cat.name,
               type: cat.type,
+              color: cat.color || '#000000',
               monthlyLimit: cat.monthlyLimit,
               userId
             }

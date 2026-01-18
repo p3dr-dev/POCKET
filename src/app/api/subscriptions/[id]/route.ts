@@ -15,9 +15,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id, userId },
       data: {
         description: body.description,
-        amount: body.amount !== undefined ? Math.abs(Number(body.amount)) : undefined,
+        amount: body.amount !== undefined ? (body.amount === null ? null : Math.abs(Number(body.amount))) : undefined,
+        type: body.type,
+        frequency: body.frequency,
+        categoryId: body.categoryId,
+        accountId: body.accountId,
         active: body.active,
-        nextRun: body.nextRun ? new Date(body.nextRun) : undefined
+        nextRun: body.nextRun !== undefined ? (body.nextRun === null ? null : new Date(body.nextRun)) : undefined
       }
     });
 

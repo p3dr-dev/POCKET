@@ -29,6 +29,8 @@ interface Transaction {
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,6 +41,8 @@ export default function TransactionsPage() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
+  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterAccountId, setFilterAccountId] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -49,7 +53,9 @@ export default function TransactionsPage() {
         page: page.toString(),
         limit: '50',
         search: searchQuery,
-        type: filterType
+        type: filterType,
+        categoryId: filterCategoryId,
+        accountId: filterAccountId
       });
       const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
@@ -63,6 +69,19 @@ export default function TransactionsPage() {
       setIsLoading(false);
     }
   };
+
+  const fetchDataDependencies = async () => {
+    try {
+      const [catRes, accRes] = await Promise.all([
+        fetch('/api/categories'),
+        fetch('/api/accounts')
+      ]);
+      setCategories(await catRes.json());
+      setAccounts(await accRes.json());
+    } catch {}
+  };
+
+  useEffect(() => { fetchDataDependencies(); }, []);
 
   const handleExport = () => {
     const exportData = transactions.map(t => ({
@@ -83,7 +102,7 @@ export default function TransactionsPage() {
       fetchTransactions(1); 
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [searchQuery, filterType]);
+  }, [searchQuery, filterType, filterCategoryId, filterAccountId]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir esta transação?')) return;
@@ -154,10 +173,16 @@ export default function TransactionsPage() {
               onSearchChange={setSearchQuery}
               filterType={filterType}
               onFilterTypeChange={setFilterType}
+              filterCategoryId={filterCategoryId}
+              onFilterCategoryChange={setFilterCategoryId}
+              filterAccountId={filterAccountId}
+              onFilterAccountChange={setFilterAccountId}
               sortBy={sortBy}
               onSortByChange={setSortBy}
               sortOrder={sortOrder}
               onToggleSortOrder={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              categories={categories}
+              accounts={accounts}
             />
 
             <TransactionTable 

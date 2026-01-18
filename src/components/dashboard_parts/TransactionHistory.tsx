@@ -10,7 +10,7 @@ interface Transaction {
   type: 'INCOME' | 'EXPENSE';
   date: string;
   categoryId: string;
-  category: { name: string };
+  category: { name: string, color?: string };
   accountId: string;
   account: { name: string };
   bankRefId?: string;
@@ -144,9 +144,12 @@ export default function TransactionHistory({
                         {t.description}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-gray-100 text-gray-400'}`}>
-                          {t.category.name}
-                        </span>
+                        <div className="flex items-center gap-1.5 bg-gray-100 rounded-md px-2 py-0.5">
+                           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.category.color || '#000' }} />
+                           <span className={`text-[9px] font-black uppercase ${selectedIds.includes(t.id) ? 'text-black' : 'text-gray-400'}`}>
+                             {t.category.name}
+                           </span>
+                        </div>
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-indigo-50 text-indigo-400'}`}>
                           {t.account.name}
                         </span>

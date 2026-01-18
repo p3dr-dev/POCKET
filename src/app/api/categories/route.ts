@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       data: {
         name: body.name,
         type: body.type,
+        color: body.color || '#000000',
         monthlyLimit: body.monthlyLimit ? Number(body.monthlyLimit) : null,
         userId
       }

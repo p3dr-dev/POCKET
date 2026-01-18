@@ -2,68 +2,21 @@
 
 import { useMemo, useState } from 'react';
 
-interface Transaction {
-  amount: number;
-  type: 'INCOME' | 'EXPENSE';
-  date: string;
+interface HistoryItem {
+  label: string;
+  value: number;
 }
 
 export default function NetWorthChart({ 
-  transactions, 
-  currentBalance,
+  history = [],
   isLoading = false
 }: { 
-  transactions: Transaction[], 
-  currentBalance: number,
+  history?: HistoryItem[], 
   isLoading?: boolean
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const data = useMemo(() => {
-    // 1. Gerar últimos 6 meses
-    const months = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', ''),
-        fullDate: d,
-        value: 0
-      });
-    }
-
-    // 2. Calcular valores retroativos
-    let balance = currentBalance;
-    // Trabalhamos de trás pra frente (do mês atual para o passado)
-    // O valor do mês ATUAL (ultimo do array) é o balance atual.
-    // O valor do mês anterior é: balance atual - receitas do mês atual + despesas do mês atual.
-    
-    // Precisamos iterar do mais recente para o mais antigo para calcular o saldo INICIAL de cada mês (ou final do anterior)
-    // Mas para visualização, geralmente queremos o saldo no FINAL do mês.
-    
-    const reversedData = [...months].reverse().map((m) => {
-      const endOfMonthBalance = balance;
-
-      // Movimentações deste mês específico
-      const txsInMonth = transactions.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === m.fullDate.getMonth() && d.getFullYear() === m.fullDate.getFullYear();
-      });
-
-      const incomes = txsInMonth.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
-      const expenses = txsInMonth.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
-
-      // Preparar o balance para a próxima iteração (que será o mês anterior)
-      balance = balance - incomes + expenses;
-
-      return {
-        ...m,
-        value: endOfMonthBalance
-      };
-    });
-
-    return reversedData.reverse();
-  }, [transactions, currentBalance]);
+  const data = history;
 
   // SVG Helpers
   const width = 100;

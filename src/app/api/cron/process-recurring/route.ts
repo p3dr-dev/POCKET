@@ -18,7 +18,8 @@ export async function GET(req: Request) {
     const dueSubs = await prisma.recurringTransaction.findMany({
       where: {
         active: true,
-        nextRun: { lte: now }
+        nextRun: { lte: now, not: null },
+        amount: { not: null }
       }
     });
 

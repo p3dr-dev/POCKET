@@ -18,7 +18,7 @@ interface DebtModalProps {
   debt?: Debt | null;
 }
 
-type DebtType = 'SINGLE' | 'INSTALLMENT' | 'FIXED';
+type DebtType = 'SINGLE' | 'INSTALLMENT';
 
 export default function DebtModal({ isOpen, onClose, onSuccess, debt }: DebtModalProps) {
   const [description, setDescription] = useState('');
@@ -65,25 +65,38 @@ export default function DebtModal({ isOpen, onClose, onSuccess, debt }: DebtModa
     const method = debt ? 'PUT' : 'POST';
 
     try {
+      const finalAmount = parseFloat(amount.replace(',', '.'));
+      const finalPaid = parseFloat((paidAmount || '0').replace(',', '.'));
+
+      if (isNaN(finalAmount)) {
+        toast.error('Valor total inválido');
+        setIsLoading(false);
+        return;
+      }
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           description, 
-          totalAmount: parseFloat(amount), 
-          paidAmount: parseFloat(paidAmount || '0'), 
-          dueDate: noDueDate ? null : dueDate,
+          totalAmount: finalAmount, 
+          paidAmount: finalPaid, 
+          dueDate: (noDueDate || !dueDate) ? null : dueDate,
           type,
-          installmentsCount: parseInt(installmentsCount)
+          installmentsCount: type === 'SINGLE' ? 1 : (parseInt(installmentsCount) || 1)
         }),
       });
 
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Erro ao salvar');
+      }
+
       toast.success(debt ? 'Dívida atualizada' : 'Dívidas registradas');
       onSuccess();
       onClose();
-    } catch {
-      toast.error('Erro ao salvar');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar');
     } finally {
       setIsLoading(false);
     }
@@ -98,14 +111,14 @@ export default function DebtModal({ isOpen, onClose, onSuccess, debt }: DebtModa
         <form onSubmit={handleSubmit} className="space-y-4">
           {!debt && (
             <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
-              {(['SINGLE', 'INSTALLMENT', 'FIXED'] as DebtType[]).map((t) => (
+              {(['SINGLE', 'INSTALLMENT'] as DebtType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setType(t)}
                   className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${type === t ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}
                 >
-                  {t === 'SINGLE' ? 'Única' : t === 'INSTALLMENT' ? 'Parcelada' : 'Fixa'}
+                  {t === 'SINGLE' ? 'Única' : 'Parcelada'}
                 </button>
               ))}
             </div>
@@ -131,11 +144,8 @@ export default function DebtModal({ isOpen, onClose, onSuccess, debt }: DebtModa
               </div>
             ) : (
               <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1">
-                  {type === 'INSTALLMENT' ? 'Nº Parcelas' : 'Projetar por (Meses)'}
-                </label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1">Nº Parcelas</label>
                 <input required type="number" min="2" max="360" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-xl p-3.5 text-sm font-black outline-none transition-all" />
-                {type === 'FIXED' && <p className="text-[8px] text-gray-400 mt-1 ml-1 font-bold italic">* Como é uma conta fixa, o sistema criará as próximas {installmentsCount} ocorrências.</p>}
               </div>
             )}
           </div>

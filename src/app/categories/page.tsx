@@ -8,6 +8,7 @@ interface Category {
   id: string;
   name: string;
   type: 'INCOME' | 'EXPENSE';
+  color: string;
   monthlyLimit: number | null;
 }
 
@@ -19,6 +20,7 @@ export default function CategoriesPage() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
   const [newLimit, setNewLimit] = useState('');
+  const [newColor, setNewColor] = useState('#000000');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchCategories = async () => {
@@ -43,6 +45,7 @@ export default function CategoriesPage() {
         body: JSON.stringify({ 
           name: newName, 
           type: newType, 
+          color: newColor,
           monthlyLimit: newLimit ? parseFloat(newLimit) : null 
         }),
       });
@@ -52,6 +55,7 @@ export default function CategoriesPage() {
       toast.success('Categoria criada!');
       setNewName('');
       setNewLimit('');
+      setNewColor('#000000');
       fetchCategories();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar');
@@ -60,12 +64,12 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleUpdateLimit = async (id: string, name: string, limit: number | null) => {
+  const handleUpdate = async (id: string, name: string, limit: number | null, color?: string) => {
     try {
       const res = await fetch(`/api/categories/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, monthlyLimit: limit }),
+        body: JSON.stringify({ name, monthlyLimit: limit, color }),
       });
       if (res.ok) toast.success('Atualizado');
       fetchCategories();
@@ -108,7 +112,7 @@ export default function CategoriesPage() {
             <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-gray-100 shadow-sm relative overflow-hidden">
               <div className="relative z-10">
                 <h2 className="text-lg font-black mb-6 uppercase tracking-widest text-gray-400">Novo Planejamento</h2>
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div className="md:col-span-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Nome</label>
                     <input 
@@ -131,7 +135,7 @@ export default function CategoriesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Limite Mensal (Opcional)</label>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Limite Mensal</label>
                     <input 
                       type="number"
                       step="0.01"
@@ -141,7 +145,19 @@ export default function CategoriesPage() {
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all"
                     />
                   </div>
-                  <div className="md:col-span-4 flex justify-end mt-2">
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Cor</label>
+                    <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2 border-2 border-transparent focus-within:border-black transition-all">
+                      <input 
+                        type="color"
+                        value={newColor}
+                        onChange={e => setNewColor(e.target.value)}
+                        className="w-10 h-10 bg-transparent rounded-lg cursor-pointer border-0 p-0 overflow-hidden" 
+                      />
+                      <span className="text-[10px] font-mono font-bold text-gray-400">{newColor.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <div className="md:col-span-5 flex justify-end mt-2">
                     <button 
                       disabled={isSubmitting}
                       className="bg-black text-white px-10 py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-black/10"
@@ -175,22 +191,37 @@ export default function CategoriesPage() {
                   ) : (
                     categories.filter(c => c.type === 'EXPENSE').map(cat => (
                       <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-rose-200 transition-all">
-                        <div className="flex-1">
-                          <span className="font-black text-gray-900 block">{cat.name}</span>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
-                            Limite: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Sem limite definido'}
-                          </p>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl shadow-lg shadow-black/5 flex items-center justify-center border border-gray-100" style={{ backgroundColor: cat.color }}>
+                             <div className="w-2 h-2 rounded-full bg-white/30" />
+                          </div>
+                          <div>
+                            <span className="font-black text-gray-900 block">{cat.name}</span>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
+                              Limite: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Sem limite definido'}
+                            </p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
                               const val = prompt('Novo limite mensal (ou deixe em branco para remover):', cat.monthlyLimit?.toString() || '');
-                              if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                              if (val !== null) handleUpdate(cat.id, cat.name, val === '' ? null : parseFloat(val), cat.color);
                             }}
                             className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
                             title="Editar Limite"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const color = prompt('Nova cor (hex):', cat.color);
+                              if (color) handleUpdate(cat.id, cat.name, cat.monthlyLimit, color);
+                            }}
+                            className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                            title="Mudar Cor"
+                          >
+                            <div className="w-4 h-4 rounded border border-gray-200" style={{ backgroundColor: cat.color }} />
                           </button>
                           <button 
                             onClick={() => handleDelete(cat.id)}
@@ -226,20 +257,35 @@ export default function CategoriesPage() {
                   ) : (
                     categories.filter(c => c.type === 'INCOME').map(cat => (
                       <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
-                        <div className="flex-1">
-                          <span className="font-black text-gray-900 block">{cat.name}</span>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Recorrência Estimada: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Não estimada'}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl shadow-lg shadow-black/5 flex items-center justify-center border border-gray-100" style={{ backgroundColor: cat.color }}>
+                             <div className="w-2 h-2 rounded-full bg-white/30" />
+                          </div>
+                          <div>
+                            <span className="font-black text-gray-900 block">{cat.name}</span>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Estimativa: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Não estimada'}</p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
                               const val = prompt('Estimativa mensal:', cat.monthlyLimit?.toString() || '');
-                              if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                              if (val !== null) handleUpdate(cat.id, cat.name, val === '' ? null : parseFloat(val), cat.color);
                             }}
                             className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
                             title="Editar Limite"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const color = prompt('Nova cor (hex):', cat.color);
+                              if (color) handleUpdate(cat.id, cat.name, cat.monthlyLimit, color);
+                            }}
+                            className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                            title="Mudar Cor"
+                          >
+                            <div className="w-4 h-4 rounded border border-gray-200" style={{ backgroundColor: cat.color }} />
                           </button>
                           <button 
                             onClick={() => handleDelete(cat.id)}

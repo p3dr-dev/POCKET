@@ -12,6 +12,7 @@ import FinancialPlanner from '@/components/dashboard_parts/FinancialPlanner';
 import CategoryBreakdown from '@/components/dashboard_parts/CategoryBreakdown';
 import BudgetOverview from '@/components/dashboard_parts/BudgetOverview';
 import NetWorthChart from '@/components/dashboard_parts/NetWorthChart';
+import FinancialHealthWidget from '@/components/dashboard_parts/FinancialHealthWidget';
 import toast from 'react-hot-toast';
 
 interface Transaction {
@@ -34,6 +35,8 @@ export default function Dashboard() {
   const [investments, setInvestments] = useState<any[]>([]);
   const [debts, setDebts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [netWorthHistory, setNetWorthHistory] = useState<any[]>([]);
+  const [healthData, setHealthData] = useState<any>(null);
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,12 +53,14 @@ export default function Dashboard() {
   const fetchData = async (search = '') => {
     setIsLoading(true);
     try {
-      const [txRes, accRes, invRes, debtRes, catRes] = await Promise.all([
-        fetch(`/api/transactions?limit=100&search=${search}`),
+      const [txRes, accRes, invRes, debtRes, catRes, nwRes, healthRes] = await Promise.all([
+        fetch(`/api/transactions?limit=500&search=${search}`),
         fetch('/api/accounts'),
         fetch('/api/investments'),
         fetch('/api/debts'),
-        fetch('/api/categories')
+        fetch('/api/categories'),
+        fetch('/api/reports/net-worth'),
+        fetch('/api/reports/financial-health')
       ]);
       const txData = await txRes.json();
       setTransactions(txData.transactions || []);
@@ -63,6 +68,8 @@ export default function Dashboard() {
       setInvestments(await invRes.json());
       setDebts(await debtRes.json());
       setCategories(await catRes.json());
+      setNetWorthHistory(await nwRes.json());
+      setHealthData(await healthRes.json());
     } finally { setIsLoading(false); }
   };
 
@@ -86,8 +93,7 @@ export default function Dashboard() {
 
     // Accounts balance
     const accBalance = Array.isArray(accounts) ? accounts.reduce((acc, a) => {
-      const b = a.transactions?.reduce((sum: number, t: any) => t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
-      return acc + b;
+      return acc + (a.balance || 0);
     }, 0) : 0;
 
     const invTotal = Array.isArray(investments) ? investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0) : 0;
@@ -306,13 +312,14 @@ export default function Dashboard() {
                 dailyGoal={stats.dailyGoal} 
                 isLoading={isLoading}
               />
-              <NetWorthChart transactions={transactions} currentBalance={stats.netWorth} />
+              <NetWorthChart history={netWorthHistory} isLoading={isLoading} />
               <CategoryBreakdown transactions={transactions} isLoading={isLoading} />
             </div>
 
             {/* Widgets Section: AI, Budgets & Debts */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
                <div className="space-y-8">
+                 <FinancialHealthWidget data={healthData} isLoading={isLoading} />
                  <AiLabWidget 
                    insight={aiInsight} 
                    isLoading={isAiLoading} 

@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get('accountId');
+    const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search');
     const type = searchParams.get('type');
     const page = parseInt(searchParams.get('page') || '1');
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
     const where: any = {
       userId,
       ...(accountId ? { accountId } : {}),
+      ...(categoryId ? { categoryId } : {}),
       ...(type && type !== 'ALL' ? { type } : {}),
       ...(search ? {
         OR: [
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
       prisma.transaction.findMany({
         where,
         include: {
-          category: { select: { name: true } },
+          category: { select: { name: true, color: true } },
           account: { select: { name: true } }
         },
         orderBy: { date: 'desc' },

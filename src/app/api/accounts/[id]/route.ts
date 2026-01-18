@@ -15,26 +15,29 @@ export async function GET(
     const { id } = await params;
     const userId = session.user.id;
 
-    const account = await prisma.account.findUnique({
-      where: { id, userId },
-      include: {
-        transactions: {
-          select: { amount: true, type: true }
-        }
-      }
-    });
+    const [account, incomeSum, expenseSum] = await Promise.all([
+      prisma.account.findUnique({
+        where: { id, userId }
+      }),
+      prisma.transaction.aggregate({
+        where: { accountId: id, userId, type: 'INCOME' },
+        _sum: { amount: true }
+      }),
+      prisma.transaction.aggregate({
+        where: { accountId: id, userId, type: 'EXPENSE' },
+        _sum: { amount: true }
+      })
+    ]);
 
     if (!account) {
       return NextResponse.json({ message: 'Conta não encontrada' }, { status: 404 });
     }
 
-    const balance = account.transactions.reduce((sum, t) => 
-      t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
+    const balance = (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
 
     return NextResponse.json({
       ...account,
-      balance,
-      transactions: undefined // Remove para diminuir o payload
+      balance
     });
   } catch (error) {
     console.error('Account GET Error:', error);

@@ -32,6 +32,7 @@ model Category {
   id           String        @id @default(cuid())
   name         String
   type         String        // SQLite não suporta Enum nativo, Prisma emula via String
+  color        String?       @default("#000000")
   monthlyLimit Float?        // Limite de gastos mensal
   userId       String?
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -137,10 +138,10 @@ model Goal {
 model RecurringTransaction {
   id           String          @id @default(cuid())
   description  String
-  amount       Float
+  amount       Float?          // Agora opcional para valores variáveis
   type         String          // INCOME, EXPENSE
   frequency    String          
-  nextRun      DateTime
+  nextRun      DateTime?       // Agora opcional para datas variáveis
   active       Boolean         @default(true)
   
   categoryId   String

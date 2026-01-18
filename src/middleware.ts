@@ -6,7 +6,9 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
+  const userRole = (req.auth?.user as any)?.role;
   const isOnAuthPage = req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/register');
+  const isOnAdminPage = req.nextUrl.pathname.startsWith('/admin');
   const isOnPublicPage = req.nextUrl.pathname === '/';
 
   // Redirecionar usuário logado para dashboard se tentar acessar login/registro
@@ -15,6 +17,12 @@ export default auth((req) => {
       return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
     }
     return NextResponse.next();
+  }
+
+  // Proteção de rotas administrativas
+  if (isOnAdminPage) {
+    if (!isLoggedIn) return NextResponse.redirect(new URL('/login', req.nextUrl));
+    if (userRole !== 'ADMIN') return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
   }
 
   // Redirecionar usuário não logado para login se tentar acessar rotas protegidas

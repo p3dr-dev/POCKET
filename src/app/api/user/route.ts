@@ -11,14 +11,23 @@ export async function GET() {
     
     const userId = session.user.id;
 
-    // Buscar dados reais do usuário logado
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        accounts: { select: { id: true } },
-        transactions: { select: { amount: true, type: true } }
-      }
-    });
+    // Buscar dados do usuário e agregar saldos
+    const [user, incomeSum, expenseSum] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          _count: { select: { accounts: true } }
+        }
+      }),
+      prisma.transaction.aggregate({
+        where: { userId, type: 'INCOME' },
+        _sum: { amount: true }
+      }),
+      prisma.transaction.aggregate({
+        where: { userId, type: 'EXPENSE' },
+        _sum: { amount: true }
+      })
+    ]);
 
     if (!user) {
       return NextResponse.json({ 
@@ -27,13 +36,12 @@ export async function GET() {
       });
     }
 
-    const balance = user.transactions.reduce((sum, t) => 
-      t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
+    const balance = (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
 
     return NextResponse.json({
       name: user.name || 'Usuário',
       status: balance >= 0 ? 'Saldo Positivo' : 'Saldo Negativo',
-      accountCount: user.accounts.length,
+      accountCount: user._count.accounts,
       level: balance > 10000 ? 'Elite' : 'Premium'
     });
   } catch (error) {
