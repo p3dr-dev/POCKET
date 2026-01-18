@@ -7,20 +7,18 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!session?.user?.id) return NextResponse.json([]);
 
-    const investments = await prisma.investment.findMany({
-      where: { userId: session.user.id },
-      include: { account: true },
-      orderBy: { amount: 'desc' }
-    });
+    const userId = session.user.id;
+    const investments = await prisma.$queryRaw`
+      SELECT i.*, a.name as "accountName"
+      FROM "Investment" i
+      LEFT JOIN "Account" a ON i."accountId" = a.id
+      WHERE i."userId" = ${userId}
+      ORDER BY i."createdAt" DESC
+    `;
 
-    const formatted = investments.map(i => ({
-      ...i,
-      accountName: i.account.name
-    }));
-
-    return NextResponse.json(formatted);
+    return NextResponse.json(Array.isArray(investments) ? investments : []);
   } catch (error) {
     return NextResponse.json([]);
   }
@@ -29,61 +27,54 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { name, type, amount, currentValue, accountId, createTransaction } = body;
-
-    if (!name || !amount || !accountId) {
-      return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
-    }
-
     const userId = session.user.id;
 
-    // Usar transação para atomicidade
-    await prisma.$transaction(async (tx) => {
-      // 1. Criar Investimento
-      await tx.investment.create({
-        data: {
-          name,
-          type,
-          amount: Number(amount),
-          currentValue: Number(currentValue || amount),
-          accountId,
-          userId: userId
-        }
-      });
+    // Validate Account Ownership
+    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${body.accountId} AND "userId" = ${userId} LIMIT 1`;
+    if (!account || account.length === 0) {
+      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
+    }
 
-      // 2. Criar Transação de Saída (se solicitado)
-      if (createTransaction) {
-        let category = await tx.category.findFirst({
-          where: { name: 'Investimentos', type: 'EXPENSE', userId: userId }
-        });
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const investmentDate = body.date ? new Date(body.date).toISOString() : now;
 
-        if (!category) {
-          category = await tx.category.create({
-            data: { name: 'Investimentos', type: 'EXPENSE', userId: userId }
-          });
-        }
+    await prisma.$executeRaw`
+      INSERT INTO "Investment" (id, name, type, amount, "currentValue", "accountId", "userId", "createdAt", "updatedAt")
+      VALUES (${id}, ${body.name}, ${body.type}, ${Number(body.amount)}, ${Number(body.currentValue || body.amount)}, ${body.accountId}, ${userId}, ${investmentDate}, ${now})
+    `;
 
-        await tx.transaction.create({
-          data: {
-            description: `Aporte: ${name}`,
-            amount: Number(amount),
-            type: 'EXPENSE',
-            date: new Date(),
-            categoryId: category.id,
-            accountId: accountId,
-            userId: userId
-          }
-        });
-      }
-    });
+    // Criar transação de saída automática da conta bancária
+    const txId = crypto.randomUUID();
+    
+    // Buscar categoria de investimentos ou criar se não existir
+    const categories: any[] = await prisma.$queryRaw`
+      SELECT id FROM "Category" WHERE name = 'Investimentos' AND type = 'EXPENSE' AND "userId" = ${userId} LIMIT 1
+    `;
+    
+    let categoryId: string;
+    if (categories && categories.length > 0) {
+      categoryId = categories[0].id;
+    } else {
+      categoryId = crypto.randomUUID().substring(0, 8);
+      await prisma.$executeRaw`
+        INSERT INTO "Category" (id, name, type, "userId") 
+        VALUES (${categoryId}, 'Investimentos', 'EXPENSE', ${userId})
+      `;
+    }
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    await prisma.$executeRaw`
+      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
+      VALUES (${txId}, ${`Aporte: ${body.name}`}, ${Math.abs(Number(body.amount))}, ${investmentDate}, 'EXPENSE', ${categoryId}, ${body.accountId}, ${userId}, ${now}, ${now})
+    `;
+
+    return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
     console.error('Investment POST Error:', error);
-    return NextResponse.json({ message: 'Erro ao salvar' }, { status: 500 });
+    return NextResponse.json({ message: 'Erro ao criar investimento' }, { status: 500 });
   }
 }
 

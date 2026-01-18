@@ -59,9 +59,22 @@ export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const userId = session.user.id;
 
     const body = await request.json();
-    const id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // Basic Validation
+    if (!body.description || !body.amount || !body.accountId) {
+      return NextResponse.json({ message: 'Descrição, valor e conta são obrigatórios' }, { status: 400 });
+    }
+
+    // Validate Account Ownership
+    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${body.accountId} AND "userId" = ${userId} LIMIT 1`;
+    if (!account || account.length === 0) {
+      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
+    }
+
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
     const dateStr = body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
@@ -69,18 +82,24 @@ export async function POST(request: Request) {
 
     let categoryId = body.categoryId;
 
-    if (!categoryId) {
-      const type = body.type || 'EXPENSE';
-      const categoryName = 'Outros';
+    if (categoryId === 'YIELD_AUTO' || !categoryId) {
+      const type = categoryId === 'YIELD_AUTO' ? 'INCOME' : (body.type || 'EXPENSE');
+      const categoryName = categoryId === 'YIELD_AUTO' ? 'Rendimentos' : 'Outros';
       
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type}::"TransactionType" AND "userId" = ${session.user.id} LIMIT 1`;
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type} AND "userId" = ${userId} LIMIT 1`;
       
       if (existing && existing.length > 0) {
         categoryId = existing[0].id;
       } else {
-        const catId = Math.random().toString(36).substring(2, 10);
-        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${catId}, ${categoryName}, ${type}::"TransactionType", ${session.user.id})`;
+        const catId = crypto.randomUUID().substring(0, 8);
+        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${catId}, ${categoryName}, ${type}, ${userId})`;
         categoryId = catId;
+      }
+    } else {
+      // Validate Category Ownership
+      const category: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE id = ${categoryId} AND "userId" = ${userId} LIMIT 1`;
+      if (!category || category.length === 0) {
+        return NextResponse.json({ message: 'Categoria inválida ou não encontrada' }, { status: 403 });
       }
     }
 
@@ -90,9 +109,9 @@ export async function POST(request: Request) {
         payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
       )
       VALUES (
-        ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}::timestamp, ${body.type}::"TransactionType", 
-        ${categoryId}, ${body.accountId}, ${session.user.id}, ${body.payee || null}, ${body.payer || null}, 
-        ${body.bankRefId || null}, ${body.externalId || null}, ${now}::timestamp, ${now}::timestamp
+        ${id}, ${body.description}, ${Math.abs(Number(body.amount))}, ${txDate}, ${body.type}, 
+        ${categoryId}, ${body.accountId}, ${userId}, ${body.payee || null}, ${body.payer || null}, 
+        ${body.bankRefId || null}, ${body.externalId || null}, ${now}, ${now}
       )
     `;
 

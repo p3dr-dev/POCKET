@@ -52,26 +52,17 @@ async function batchGetSmartCategories(transactions: ParsedTransaction[], catego
   }
 }
 
-// ... (Restante das funções auxiliares mantidas iguais: generateFingerprint, parsePDF, parseCSV, etc.)
-// Vou copiar as funções auxiliares para não perder lógica, mas resumirei para caber no replace.
-// Como o replace exige texto exato, preciso ter cuidado.
-// Vou substituir APENAS a função POST e a batchGetSmartCategories, mantendo as outras helpers intactas se possível.
-// Mas como o arquivo é longo, melhor reescrever a POST e as importações/auth no topo.
-
 /**
  * GERA FINGERPRINT ÚNICO
  */
 function generateFingerprint(tx: ParsedTransaction, accountId: string) {
   const amount = Math.abs(tx.amount).toFixed(2);
   const dateStr = tx.date; 
-  const content = `${dateStr}|${tx.description.trim()}|${amount}|${accountId}|${tx.bankRefId || ''}`;
+  // Normalizar descrição: minúsculas e sem espaços extras
+  const cleanDesc = tx.description.toLowerCase().replace(/\s+/g, ' ').trim();
+  const content = `${dateStr}|${cleanDesc}|${amount}|${accountId}|${tx.bankRefId || ''}`;
   return crypto.createHash('md5').update(content).digest('hex');
 }
-
-// ... (Mantendo helpers de PDF/CSV existentes pois são extensos e complexos) ...
-// Para garantir que não quebre, vou usar o read_file original como base e apenas injetar o auth e a lógica nova na POST.
-// O problema é que preciso substituir o arquivo inteiro ou blocos exatos.
-// Vou substituir o arquivo todo com a versão aprimorada.
 
 function cleanHeaderTerms(text: string): string {
     const headerTerms = [
@@ -372,59 +363,68 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const accountId = formData.get('accountId') as string;
+    const userId = session.user.id;
+
+    // Validate Account Ownership
+    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${accountId} AND "userId" = ${userId} LIMIT 1`;
+    if (!account || account.length === 0) {
+      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
+    const now = new Date().toISOString();
     
-    let transactions: ParsedTransaction[] = [];
-    if (file.name.toLowerCase().endsWith('.pdf')) transactions = await parseAdvancedPDF(buffer);
-    else if (file.name.toLowerCase().endsWith('.csv')) transactions = parseCSV(buffer.toString('utf-8'));
-    else if (file.name.toLowerCase().endsWith('.ofx')) transactions = parseOFX(buffer.toString('utf-8'));
-    else transactions = await parseAdvancedPDF(buffer);
+    let parsedTxs: ParsedTransaction[] = [];
+    if (file.name.toLowerCase().endsWith('.pdf')) parsedTxs = await parseAdvancedPDF(buffer);
+    else if (file.name.toLowerCase().endsWith('.csv')) parsedTxs = parseCSV(buffer.toString('utf-8'));
+    else if (file.name.toLowerCase().endsWith('.ofx')) parsedTxs = parseOFX(buffer.toString('utf-8'));
+    else parsedTxs = await parseAdvancedPDF(buffer);
 
-    if (transactions.length === 0) return NextResponse.json({ message: 'Nenhuma transação encontrada.' }, { status: 400 });
+    if (parsedTxs.length === 0) return NextResponse.json({ message: 'Nenhuma transação encontrada.' }, { status: 400 });
 
-    const categories = await prisma.category.findMany({ where: { userId: session.user.id } });
-    const suggestedNames = await batchGetSmartCategories(transactions, categories);
+    const categories: any[] = await prisma.$queryRaw`SELECT * FROM "Category" WHERE "userId" = ${userId}`;
+    const suggestedNames = await batchGetSmartCategories(parsedTxs, categories);
 
     let importedCount = 0;
     const processedInBatch = new Set<string>();
 
-    for (let i = 0; i < transactions.length; i++) {
-      const tx = transactions[i];
+    for (let i = 0; i < parsedTxs.length; i++) {
+      const tx = parsedTxs[i];
       const suggestedName = suggestedNames[i] || "Outros";
       const externalId = generateFingerprint(tx, accountId);
       
       if (processedInBatch.has(externalId)) continue;
 
-      const existing = await prisma.transaction.findFirst({ where: { externalId } });
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} AND "accountId" = ${accountId} LIMIT 1`;
 
-      if (!existing) {
+      if (existing.length === 0) {
         const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
         let category = categories.find(c => c.name.toLowerCase() === suggestedName.toLowerCase() && c.type === type);
         
+        let catId: string;
         if (!category) {
-          category = await prisma.category.create({
-            data: { name: suggestedName, type: type as any, userId: session.user.id }
-          });
-          categories.push(category);
+          catId = crypto.randomUUID().substring(0, 8);
+          await prisma.$executeRaw`
+            INSERT INTO "Category" (id, name, type, "userId") 
+            VALUES (${catId}, ${suggestedName}, ${type}, ${userId})
+          `;
+          categories.push({ id: catId, name: suggestedName, type });
+        } else {
+          catId = category.id;
         }
         
         const txDate = tx.date.includes('T') ? tx.date : `${tx.date}T12:00:00.000Z`;
         const isoDate = new Date(txDate).toISOString();
+        const txId = crypto.randomUUID();
 
-        await prisma.transaction.create({
-          data: {
-            description: tx.description,
-            amount: Math.abs(tx.amount),
-            type: type as any,
-            date: isoDate,
-            categoryId: category.id,
-            accountId,
-            externalId,
-            payee: tx.payee || null,
-            payer: tx.payer || null,
-            bankRefId: tx.bankRefId || null
-          }
-        });
+                      await prisma.$executeRaw`
+                        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
+                        VALUES (
+                          ${txId}, ${tx.description}, ${Math.abs(tx.amount)}, ${isoDate}, ${type}, 
+                          ${catId}, ${accountId}, ${userId}, ${tx.payee || null}, ${tx.payer || null}, 
+                          ${tx.bankRefId || null}, ${externalId}, ${now}, ${now}
+                        )
+                      `;        
         importedCount++;
         processedInBatch.add(externalId);
       }

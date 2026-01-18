@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import SubscriptionModal from '@/components/modals/SubscriptionModal';
 import toast from 'react-hot-toast';
 
 interface Subscription {
@@ -19,6 +20,7 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchSubscriptions = async () => {
     setIsLoading(true);
@@ -62,7 +64,7 @@ export default function SubscriptionsPage() {
             <h1 className="text-xl lg:text-2xl font-black tracking-tight">Assinaturas e Recorrências</h1>
           </div>
           <button 
-            onClick={() => toast('Em breve: Modal de Assinatura')} 
+            onClick={() => setIsModalOpen(true)} 
             className="bg-black text-white px-5 py-3 rounded-2xl font-black hover:bg-gray-800 transition-all text-xs flex items-center gap-2 active:scale-95 shadow-xl shadow-black/10"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
@@ -111,7 +113,7 @@ export default function SubscriptionsPage() {
                       <p className="text-2xl font-black text-gray-900 mt-1 tabular-nums">{formatCurrency(sub.amount)}</p>
                       
                       <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase">{sub.account.name}</span>
+                         <span className="text-[10px] font-bold text-gray-400 uppercase">{sub.account?.name || 'Sem conta'}</span>
                          <button 
                            onClick={() => toggleActive(sub.id, sub.active)}
                            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${sub.active ? 'bg-rose-50 text-rose-600 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
@@ -126,6 +128,12 @@ export default function SubscriptionsPage() {
           </div>
         </div>
       </main>
+
+      <SubscriptionModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchSubscriptions}
+      />
     </div>
   );
 }

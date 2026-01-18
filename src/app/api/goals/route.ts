@@ -22,15 +22,15 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const id = Math.random().toString(36).substring(2, 15);
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    const dateStr = body.deadline.includes('T') ? body.deadline : `${body.deadline}T12:00:00.000Z`;
-    const deadline = new Date(dateStr).toISOString();
+    const deadlineStr = body.deadline.includes('T') ? body.deadline : `${body.deadline}T12:00:00.000Z`;
+    const deadline = new Date(deadlineStr).toISOString();
 
     await prisma.$executeRaw`
       INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "userId", "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}::timestamp, ${body.color || '#000000'}, ${session.user.id}, ${now}::timestamp, ${now}::timestamp)
+      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}, ${body.color || '#000000'}, ${session.user.id}, ${now}, ${now})
     `;
 
     return NextResponse.json({ id }, { status: 201 });

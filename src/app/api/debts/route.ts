@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     };
 
     for (let i = 0; i < count; i++) {
-      const id = Math.random().toString(36).substring(2, 15);
+      const id = crypto.randomUUID();
       const dueDate = (initialDate && type !== 'SINGLE') ? addMonths(initialDate, i).toISOString() : initialDateStr;
       
       let description = body.description;
@@ -51,12 +51,12 @@ export async function POST(request: Request) {
         VALUES (
           ${id}, 
           ${description}, 
-          ${Number(body.totalAmount)}, 
-          ${Number(body.paidAmount || 0)}, 
-          ${dueDate}::timestamp, 
+          ${Math.abs(Number(body.totalAmount))}, 
+          ${Math.abs(Number(body.paidAmount || 0))}, 
+          ${dueDate}, 
           ${session.user.id},
-          ${now}::timestamp, 
-          ${now}::timestamp
+          ${now}, 
+          ${now}
         )
       `;
     }

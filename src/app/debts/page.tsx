@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import DebtModal from '@/components/modals/DebtModal';
 import DebtPaymentModal from '@/components/modals/DebtPaymentModal';
 import toast from 'react-hot-toast';
+import { secureFetch } from '@/lib/api-client';
 
 interface Debt {
   id: string;
@@ -14,6 +15,8 @@ interface Debt {
   dueDate: string;
 }
 
+type FilterType = 'ALL' | 'PENDING' | 'OVERDUE' | 'PAID';
+
 export default function DebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +24,9 @@ export default function DebtsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
+  const [filter, setFilter] = useState<FilterType>('PENDING');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Payment Modal State
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -29,9 +35,10 @@ export default function DebtsPage() {
   const fetchDebts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/debts');
-      const data = await res.json();
+      const data = await secureFetch('/api/debts');
       setDebts(Array.isArray(data) ? data : []);
+    } catch {
+      setDebts([]);
     } finally {
       setIsLoading(false);
     }
@@ -42,29 +49,23 @@ export default function DebtsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este compromisso?')) return;
     try {
-      await fetch(`/api/debts/${id}`, { method: 'DELETE' });
+      await secureFetch(`/api/debts/${id}`, { method: 'DELETE' });
       toast.success('Excluído');
       fetchDebts();
-    } catch {
-      toast.error('Erro ao excluir');
-    }
+    } catch {}
   };
 
   const handleDeleteBulk = async () => {
     if (!confirm(`Deseja excluir os ${selectedIds.length} compromissos selecionados?`)) return;
     try {
-      const res = await fetch('/api/debts/bulk', {
+      await secureFetch('/api/debts/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds }),
       });
-      if (!res.ok) throw new Error();
       toast.success('Excluídos com sucesso');
       setSelectedIds([]);
       fetchDebts();
-    } catch {
-      toast.error('Erro ao excluir em lote');
-    }
+    } catch {}
   };
 
   const toggleSelect = (id: string) => {
@@ -75,6 +76,20 @@ export default function DebtsPage() {
     setPayingDebt(debt);
     setIsPayModalOpen(true);
   };
+
+  const filteredDebts = debts.filter(d => {
+    const remaining = d.totalAmount - d.paidAmount;
+    const isPaid = remaining <= 0;
+    const isOverdue = new Date(d.dueDate) < new Date() && !isPaid;
+    
+    const matchesSearch = d.description.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (filter === 'PAID') return isPaid;
+    if (filter === 'PENDING') return !isPaid;
+    if (filter === 'OVERDUE') return isOverdue;
+    return true;
+  });
 
   const totalRemaining = debts.reduce((acc, d) => acc + (d.totalAmount - d.paidAmount), 0);
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -90,12 +105,14 @@ export default function DebtsPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div>
-              <h1 className="text-xl lg:text-2xl font-black tracking-tight">Compromissos</h1>
-              {selectedIds.length > 0 && (
+              <h1 className="text-xl lg:text-2xl font-black tracking-tight leading-none">Compromissos</h1>
+              {selectedIds.length > 0 ? (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">{selectedIds.length} selecionados</span>
                   <button onClick={handleDeleteBulk} className="text-[10px] font-black text-rose-600 hover:underline uppercase tracking-tighter">Excluir Lote</button>
                 </div>
+              ) : (
+                <p className="hidden md:block text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1">Gestão de passivos e parcelas</p>
               )}
             </div>
           </div>
@@ -121,9 +138,31 @@ export default function DebtsPage() {
                     <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalRemaining)}</h2>
                   )}
                </div>
-               <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-black/10 rounded-full blur-3xl group-hover:bg-black/20 transition-colors duration-700" />
-               <div className="absolute top-0 right-0 p-8 opacity-20">
-                  <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+               <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-black/10 rounded-full blur-2xl group-hover:bg-black/20 transition-colors duration-700" />
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+               <div className="flex bg-gray-100 p-1 rounded-2xl w-full md:w-auto overflow-x-auto no-scrollbar">
+                  {(['PENDING', 'OVERDUE', 'PAID', 'ALL'] as FilterType[]).map((f) => (
+                    <button 
+                      key={f}
+                      onClick={() => setFilter(f)}
+                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === f ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      {f === 'PENDING' ? 'Pendentes' : f === 'OVERDUE' ? 'Vencidas' : f === 'PAID' ? 'Pagas' : 'Todas'}
+                    </button>
+                  ))}
+               </div>
+               <div className="relative w-full md:w-64 group">
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Pesquisar compromisso..." 
+                    className="w-full bg-white border border-gray-100 rounded-2xl py-3 h-12 pl-10 pr-4 text-xs font-bold outline-none transition-all focus:border-black focus:ring-4 focus:ring-gray-50 shadow-sm"
+                  />
+                  <svg className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                </div>
             </div>
 
@@ -144,12 +183,12 @@ export default function DebtsPage() {
                       </div>
                    </div>
                  ))
-               ) : debts.length === 0 ? (
+               ) : filteredDebts.length === 0 ? (
                  <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
-                    <p className="text-sm font-bold text-gray-400">Nenhum compromisso pendente.</p>
+                    <p className="text-sm font-bold text-gray-400">Nenhum compromisso encontrado.</p>
                  </div>
                ) : (
-                 debts.map((debt) => {
+                 filteredDebts.map((debt) => {
                    const remaining = debt.totalAmount - debt.paidAmount;
                    const isOverdue = new Date(debt.dueDate) < new Date() && remaining > 0;
                    const isSelected = selectedIds.includes(debt.id);

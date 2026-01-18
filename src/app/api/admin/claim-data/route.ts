@@ -11,24 +11,24 @@ export async function POST(req: Request) {
 
     const userId = session.user.id;
 
-    // Verificar se é admin (opcional, mas recomendado)
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (user?.role !== 'ADMIN') {
-        // Se não for admin, só permite se não houver outros usuários (segurança)
-        const count = await prisma.user.count();
+    // Verificar se é admin ou se é o único usuário
+    const usersRes: any[] = await prisma.$queryRaw`SELECT role FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const userRole = usersRes[0]?.role;
+
+    if (userRole !== 'ADMIN') {
+        const counts: any[] = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "User"`;
+        const count = Number(counts[0]?.count || 0);
         if (count > 1) return NextResponse.json({ error: 'Apenas admin pode fazer isso' }, { status: 403 });
     }
 
-    await prisma.$transaction(async (tx) => {
-        // Vincular tudo ao usuário atual
-        await tx.account.updateMany({ data: { userId } });
-        await tx.category.updateMany({ data: { userId } });
-        await tx.transaction.updateMany({ data: { userId } });
-        await tx.debt.updateMany({ data: { userId } });
-        await tx.goal.updateMany({ data: { userId } });
-        await tx.investment.updateMany({ data: { userId } });
-        await tx.recurringTransaction.updateMany({ data: { userId } });
-    });
+    // Vincular tudo ao usuário atual (Sem transação cliente)
+    await prisma.$executeRaw`UPDATE "Account" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "Category" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "Transaction" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "Debt" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "Goal" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "Investment" SET "userId" = ${userId}`;
+    await prisma.$executeRaw`UPDATE "RecurringTransaction" SET "userId" = ${userId}`;
 
     return NextResponse.json({ success: true, message: 'Todos os dados foram vinculados à sua conta.' });
   } catch (error: any) {

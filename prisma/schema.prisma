@@ -1,13 +1,12 @@
 // prisma/schema.prisma
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -31,20 +30,21 @@ model User {
 model Category {
   id           String        @id @default(cuid())
   name         String
-  type         TransactionType
+  type         String        // SQLite não suporta Enum nativo, Prisma emula via String
   monthlyLimit Float?        // Limite de gastos mensal
   userId       String?
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   recurringTransactions RecurringTransaction[]
   
-  @@unique([name, userId]) // Garante que nomes sejam únicos apenas por usuário
+  @@unique([name, userId]) 
+  @@index([userId])
 }
 
 model Account {
   id           String        @id @default(cuid())
   name         String
-  type         AccountType
+  type         String        // BANK, CASH, CREDIT_CARD, CRYPTO, INVESTMENT
   color        String?       @default("#000000")
   userId       String?
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -53,6 +53,8 @@ model Account {
   recurringTransactions RecurringTransaction[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -60,7 +62,7 @@ model Transaction {
   description String
   amount      Float
   date        DateTime
-  type        TransactionType
+  type        String          // INCOME, EXPENSE
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])
   accountId   String
@@ -69,30 +71,35 @@ model Transaction {
   user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   externalId  String?         // Hash para evitar duplicidade
   
-  // Novos campos para comprovantes
-  payee       String?         // Recebedor
-  payer       String?         // Pagador
-  bankRefId   String?         // ID da transação no banco
-  transferId  String?         // ID para agrupar transações de transferência
+  payee       String?         
+  payer       String?         
+  bankRefId   String?         
+  transferId  String?         
   
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   
-  @@unique([externalId, accountId]) // Hash único por conta
+  @@unique([externalId, accountId]) 
+  @@index([userId, date])
+  @@index([accountId])
+  @@index([categoryId])
 }
 
 model Investment {
   id           String   @id @default(cuid())
   name         String
   type         String   // Ex: Ações, FIIs, Tesouro, Cripto
-  amount       Float    // Valor Investido (Custo)
-  currentValue Float?   // Valor Atual de Mercado
+  amount       Float    
+  currentValue Float?   
   accountId    String
   account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   userId       String?
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
 }
 
 model Debt {
@@ -105,6 +112,8 @@ model Debt {
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Goal {
@@ -118,14 +127,16 @@ model Goal {
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model RecurringTransaction {
   id           String          @id @default(cuid())
   description  String
   amount       Float
-  type         TransactionType
-  frequency    String          // MONTHLY, YEARLY, WEEKLY
+  type         String          // INCOME, EXPENSE
+  frequency    String          
   nextRun      DateTime
   active       Boolean         @default(true)
   
@@ -138,17 +149,7 @@ model RecurringTransaction {
 
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
-}
 
-enum TransactionType {
-  INCOME
-  EXPENSE
-}
-
-enum AccountType {
-  BANK
-  CASH
-  CREDIT_CARD
-  CRYPTO
-  INVESTMENT
+  @@index([userId])
+  @@index([nextRun])
 }

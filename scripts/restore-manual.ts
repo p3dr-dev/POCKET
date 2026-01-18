@@ -37,7 +37,7 @@ async function restore() {
       for (const cat of categories) {
         await tx.$executeRaw`
           INSERT INTO "Category" (id, name, type, "monthlyLimit", "userId")
-          VALUES (${cat.id}, ${cat.name}, ${cat.type}::"TransactionType", ${cat.monthlyLimit}, ${userId})
+          VALUES (${cat.id}, ${cat.name}, ${cat.type}, ${cat.monthlyLimit}, ${userId})
         `;
       }
 
@@ -46,7 +46,7 @@ async function restore() {
       for (const acc of accounts) {
         await tx.$executeRaw`
           INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt", "userId")
-          VALUES (${acc.id}, ${acc.name}, ${acc.type}::"AccountType", ${acc.color}, ${acc.createdAt}::timestamp, ${acc.updatedAt}::timestamp, ${userId})
+          VALUES (${acc.id}, ${acc.name}, ${acc.type}, ${acc.color}, ${acc.createdAt}, ${acc.updatedAt}, ${userId})
         `;
       }
 
@@ -62,7 +62,7 @@ async function restore() {
 
         await tx.$executeRaw`
           INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "externalId", payee, payer, "bankRefId", "transferId", "createdAt", "updatedAt", "userId")
-          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}::timestamp, ${t.type}::"TransactionType", ${t.categoryId}, ${t.accountId}, ${externalId}, ${payee}, ${payer}, ${bankRefId}, ${transferId}, ${t.createdAt}::timestamp, ${t.updatedAt}::timestamp, ${userId})
+          VALUES (${t.id}, ${t.description}, ${t.amount}, ${t.date}, ${t.type}, ${t.categoryId}, ${t.accountId}, ${externalId}, ${payee}, ${payer}, ${bankRefId}, ${transferId}, ${t.createdAt}, ${t.updatedAt}, ${userId})
         `;
       }
 
@@ -71,7 +71,7 @@ async function restore() {
       for (const d of debts) {
         await tx.$executeRaw`
           INSERT INTO "Debt" (id, description, "totalAmount", "paidAmount", "dueDate", "createdAt", "updatedAt", "userId")
-          VALUES (${d.id}, ${d.description}, ${d.totalAmount}, ${d.paidAmount}, ${d.dueDate}::timestamp, ${d.createdAt}::timestamp, ${d.updatedAt}::timestamp, ${userId})
+          VALUES (${d.id}, ${d.description}, ${d.totalAmount}, ${d.paidAmount}, ${d.dueDate}, ${d.createdAt}, ${d.updatedAt}, ${userId})
         `;
       }
 
@@ -80,7 +80,7 @@ async function restore() {
       for (const g of goals) {
         await tx.$executeRaw`
           INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt", "userId")
-          VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}::timestamp, ${g.color}, ${g.createdAt}::timestamp, ${g.updatedAt}::timestamp, ${userId})
+          VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}, ${g.color}, ${g.createdAt}, ${g.updatedAt}, ${userId})
         `;
       }
     });

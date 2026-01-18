@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const { id } = await params;
     const body = await request.json();
+    const userId = session.user.id;
     const now = new Date().toISOString();
     
     let dueDate = null;
@@ -17,8 +22,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     await prisma.$executeRaw`
       UPDATE "Debt" 
-      SET description = ${body.description}, "totalAmount" = ${Number(body.totalAmount)}, "paidAmount" = ${Number(body.paidAmount)}, "dueDate" = ${dueDate}::timestamp, "updatedAt" = ${now}::timestamp
-      WHERE id = ${id}
+      SET description = ${body.description}, "totalAmount" = ${Math.abs(Number(body.totalAmount))}, "paidAmount" = ${Math.abs(Number(body.paidAmount))}, "dueDate" = ${dueDate}, "updatedAt" = ${now}
+      WHERE id = ${id} AND "userId" = ${userId}
     `;
 
     return NextResponse.json({ id });
@@ -29,8 +34,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const { id } = await params;
-    await prisma.$executeRaw`DELETE FROM "Debt" WHERE id = ${id}`;
+    const userId = session.user.id;
+    await prisma.$executeRaw`DELETE FROM "Debt" WHERE id = ${id} AND "userId" = ${userId}`;
     return NextResponse.json({ message: 'Excluída' });
   } catch (error) {
     return NextResponse.json({ message: 'Erro ao excluir' }, { status: 500 });

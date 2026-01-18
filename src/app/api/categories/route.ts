@@ -24,15 +24,13 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-    const { name, type, monthlyLimit } = await request.json();
+    const body = await request.json();
+    const id = crypto.randomUUID().substring(0, 8);
+    const userId = session.user.id;
 
-    if (!name || !type) return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
-
-    const id = Math.random().toString(36).substring(2, 10);
-    
     await prisma.$executeRaw`
-      INSERT INTO "Category" (id, name, type, "monthlyLimit", "userId") 
-      VALUES (${id}, ${name}, ${type}::"TransactionType", ${monthlyLimit ? Number(monthlyLimit) : null}, ${session.user.id})
+      INSERT INTO "Category" (id, name, type, "monthlyLimit", "userId")
+      VALUES (${id}, ${body.name}, ${body.type}, ${Number(body.monthlyLimit) || null}, ${userId})
     `;
 
     return NextResponse.json({ id }, { status: 201 });

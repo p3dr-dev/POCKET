@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { secureFetch } from '@/lib/api-client';
 
 interface Category { id: string; name: string; type: 'INCOME' | 'EXPENSE'; }
 interface Account { id: string; name: string; }
@@ -62,8 +63,8 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
   useEffect(() => {
     if (isOpen) {
       Promise.all([
-        fetch('/api/categories').then(res => res.json()),
-        fetch('/api/accounts').then(res => res.json())
+        secureFetch('/api/categories'),
+        secureFetch('/api/accounts')
       ]).then(([catData, accData]) => {
         setCategories(catData);
         setAccounts(accData);
@@ -91,6 +92,8 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
             if (accData.length > 1) setToAccountId(accData[1].id);
           }
         }
+      }).catch(() => {
+        // Fallback or error handled by secureFetch toast
       });
     }
   }, [isOpen, transaction]);
@@ -99,15 +102,14 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
     if (!magicText.trim()) return;
     setIsMagicLoading(true);
     try {
-      const res = await fetch('/api/ai/parse-transaction', {
+      const data = await secureFetch('/api/ai/parse-transaction', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: magicText }),
       });
-      const data = await res.json();
       applyAiData(data);
       setMagicText('');
       toast.success('Organizado!');
+    } catch {
     } finally { setIsMagicLoading(false); }
   };
 
@@ -185,41 +187,33 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
     try {
       if (activeTab === 'SINGLE') {
         const url = transaction ? `/api/transactions/${transaction.id}` : '/api/transactions';
-        const res = await fetch(url, {
+        await secureFetch(url, {
           method: transaction ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             description, amount: parseFloat(amount), type, categoryId, accountId, date,
             payee, payer, bankRefId, externalId
           }),
         });
-        if (!res.ok) throw new Error('Erro ao salvar');
       } 
       else if (activeTab === 'YIELD') {
-        const yieldCat = categories.find(c => c.name.toLowerCase().includes('rendimento')) || categories.find(c => c.type === 'INCOME');
-        if (!yieldCat) throw new Error('Categoria Rendimentos não encontrada');
-
-        const res = await fetch('/api/transactions', {
+        await secureFetch('/api/transactions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             description: description || 'Rendimento Automático', 
             amount: parseFloat(amount), 
             type: 'INCOME', 
-            categoryId: yieldCat.id, 
+            categoryId: 'YIELD_AUTO', // Flag para o backend resolver
             accountId, 
             date,
             payee: 'Banco', 
             payer: 'Banco'
           }),
         });
-        if (!res.ok) throw new Error('Erro ao salvar rendimento');
       }
       else {
         if (fromAccountId === toAccountId) throw new Error('Contas iguais');
-        const res = await fetch('/api/transactions/transfer', {
+        await secureFetch('/api/transactions/transfer', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             fromAccountId, 
             toAccountId, 
@@ -232,13 +226,12 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
             externalId
           }),
         });
-        if (!res.ok) throw new Error('Erro na transferência');
       }
       toast.success('Sucesso!');
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao processar');
+      // Toast shown by secureFetch
     } finally { setIsLoading(false); }
   };
 
@@ -255,7 +248,7 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
       
-      <div className="relative bg-white w-full max-w-lg max-h-[95dvh] md:max-h-[90vh] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl transform animate-in zoom-in-95 duration-300 flex flex-col">
+      <div className="relative bg-white w-full max-w-lg max-h-[95dvh] md:max-h-[90vh] overflow-hidden rounded-[2.5rem] shadow-2xl transform animate-in zoom-in-95 duration-300 flex flex-col">
         {/* Header - Sticky */}
         <div className="flex-none p-6 md:p-8 pb-4 flex justify-between items-center bg-white border-b border-gray-50">
           <div>
@@ -317,6 +310,11 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
           <form onSubmit={handleSubmit} className="space-y-5 pb-4">
             {activeTab === 'SINGLE' ? (
               <div className="space-y-5">
+                <div className="flex bg-gray-50 p-1 rounded-2xl">
+                  <button type="button" onClick={() => setType('EXPENSE')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'EXPENSE' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>Despesa</button>
+                  <button type="button" onClick={() => setType('INCOME')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'INCOME' ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>Receita</button>
+                </div>
+
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>

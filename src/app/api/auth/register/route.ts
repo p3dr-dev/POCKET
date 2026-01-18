@@ -14,69 +14,59 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, password } = registerSchema.parse(body);
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUsers: any[] = await prisma.$queryRaw`
+      SELECT id FROM "User" WHERE email = ${email} LIMIT 1
+    `;
 
-    if (existingUser) {
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json({ message: 'Email já cadastrado.' }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
     // Verificar se é o primeiro usuário
-    const userCount = await prisma.user.count();
+    const counts: any[] = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "User"`;
+    const userCount = Number(counts[0]?.count || 0);
     const role = userCount === 0 ? 'ADMIN' : 'USER';
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role
-      },
-    });
+    await prisma.$executeRaw`
+      INSERT INTO "User" (id, name, email, password, role, "createdAt", "updatedAt")
+      VALUES (${userId}, ${name}, ${email}, ${hashedPassword}, ${role}, ${now}, ${now})
+    `;
 
     // --- MIGRAÇÃO AUTOMÁTICA DE DADOS ORFÃOS ---
-    // Se for o primeiro usuário ou se decidirmos vincular dados "sem dono" a ele.
-    // Como o projeto era single-tenant, vamos vincular TUDO que não tem userId a este novo usuário.
-    // Isso garante que o usuário antigo não perca dados ao se cadastrar.
+    // Vincular TUDO que não tem userId a este novo usuário.
     
-    // 1. Atualizar Contas
-    await prisma.account.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
+    await prisma.$executeRaw`UPDATE "Account" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Category" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Goal" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Debt" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Investment" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Transaction" SET "userId" = ${userId} WHERE "userId" IS NULL`;
 
-    // 2. Atualizar Categorias
-    await prisma.category.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
+    // --- CRIAR CATEGORIAS PADRÃO ---
+    const defaultCategories = [
+      { name: 'Alimentação', type: 'EXPENSE' },
+      { name: 'Transporte', type: 'EXPENSE' },
+      { name: 'Lazer', type: 'EXPENSE' },
+      { name: 'Saúde', type: 'EXPENSE' },
+      { name: 'Educação', type: 'EXPENSE' },
+      { name: 'Moradia', type: 'EXPENSE' },
+      { name: 'Assinaturas', type: 'EXPENSE' },
+      { name: 'Rendimentos', type: 'INCOME' },
+      { name: 'Transferências', type: 'EXPENSE' },
+      { name: 'Outros', type: 'EXPENSE' }
+    ];
 
-    // 3. Atualizar Objetivos
-    await prisma.goal.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
-
-    // 4. Atualizar Dívidas
-    await prisma.debt.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
-
-    // 5. Atualizar Investimentos
-    await prisma.investment.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
-
-    // 6. Atualizar Transações
-    await prisma.transaction.updateMany({
-      where: { userId: null },
-      data: { userId: user.id }
-    });
+    for (const cat of defaultCategories) {
+      const catId = crypto.randomUUID().substring(0, 8);
+      await prisma.$executeRaw`
+        INSERT INTO "Category" (id, name, type, "userId")
+        VALUES (${catId}, ${cat.name}, ${cat.type}, ${userId})
+      `;
+    }
 
     return NextResponse.json({ message: 'Usuário criado com sucesso' }, { status: 201 });
   } catch (error: any) {

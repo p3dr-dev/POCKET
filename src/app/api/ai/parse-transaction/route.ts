@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 import { askAI } from '@/lib/ai';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Não autorizado' }, { status: 401 });
+
     const { text } = await request.json();
+    const userId = session.user.id;
     
-    // Obter categorias e contas reais para a IA fazer o match
+    // Obter categorias e contas reais do usuário para a IA fazer o match
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM "Category"`,
-      prisma.$queryRaw`SELECT id, name FROM "Account"`
+      prisma.$queryRaw`SELECT id, name FROM "Category" WHERE "userId" = ${userId}`,
+      prisma.$queryRaw`SELECT id, name FROM "Account" WHERE "userId" = ${userId}`
     ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
 
     const categoryNames = categories.map(c => c.name).join(', ');
@@ -43,17 +48,40 @@ export async function POST(request: Request) {
 
     const aiResponse = await askAI(`Texto: "${text}"`, system);
     
-    const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : "{}");
+    let parsed: any = {};
+    try {
+      const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0].trim());
+      } else {
+        throw new Error('JSON não encontrado');
+      }
+    } catch (e) {
+      console.error('Failed to parse AI response:', aiResponse);
+      return NextResponse.json({ message: 'Não foi possível entender o texto. Tente ser mais específico.' }, { status: 422 });
+    }
 
-    // Resolver IDs
-    const category = categories.find(c => c.name.toLowerCase() === parsed.categoryName?.toLowerCase());
-    const account = accounts.find(a => a.name.toLowerCase() === parsed.accountName?.toLowerCase());
+    // Smart Matching Utility
+    const findMatch = (aiName: string, list: { id: string, name: string }[]) => {
+      if (!aiName) return null;
+      const normalizedAi = aiName.toLowerCase();
+      return list.find(item => {
+        const normalizedItem = item.name.toLowerCase();
+        return normalizedItem === normalizedAi || normalizedItem.includes(normalizedAi) || normalizedAi.includes(normalizedItem);
+      });
+    };
+
+    const category = findMatch(parsed.categoryName, categories);
+    const account = findMatch(parsed.accountName, accounts);
+    const fromAccount = findMatch(parsed.fromAccountName, accounts);
+    const toAccount = findMatch(parsed.toAccountName, accounts);
 
     return NextResponse.json({
       ...parsed,
       categoryId: category?.id,
-      accountId: account?.id
+      accountId: account?.id,
+      fromAccountId: fromAccount?.id,
+      toAccountId: toAccount?.id
     });
   } catch (error) {
     console.error('Magic Parse Error:', error);

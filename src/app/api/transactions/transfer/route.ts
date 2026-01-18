@@ -27,67 +27,69 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
-    const transferId = Math.random().toString(36).substring(2, 15);
-    const txDate = new Date(date);
+
+    // Validate Account Ownership
+    const accounts: any[] = await prisma.$queryRaw`
+      SELECT id FROM "Account" WHERE id IN (${fromAccountId}, ${toAccountId}) AND "userId" = ${userId}
+    `;
+    
+    if (!accounts || accounts.length < (fromAccountId === toAccountId ? 1 : 2)) {
+      return NextResponse.json({ message: 'Uma ou ambas as contas são inválidas ou não pertencem ao usuário' }, { status: 403 });
+    }
+
+    const transferId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
+    // Garantir formato ISO correto para o banco
+    const txDate = (body.date || now).includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
+    const isoDate = new Date(txDate).toISOString();
     const cleanDesc = description || "Transferência entre contas";
 
-    // Transação Atômica
-    await prisma.$transaction(async (tx) => {
+    try {
       // 1. Garantir Categoria
-      let category = await tx.category.findFirst({
-        where: { name: 'Transferências', userId: userId }
-      });
+      let categoryId: string;
+      const categories: any[] = await prisma.$queryRaw`
+        SELECT id FROM "Category" WHERE name = 'Transferências' AND "userId" = ${userId} LIMIT 1
+      `;
 
-      if (!category) {
-        category = await tx.category.create({
-          data: { name: 'Transferências', type: 'EXPENSE', userId: userId }
-        });
+      if (categories && categories.length > 0) {
+        categoryId = categories[0].id;
+      } else {
+        categoryId = crypto.randomUUID().substring(0, 8);
+        await prisma.$executeRaw`
+          INSERT INTO "Category" (id, name, type, "userId") 
+          VALUES (${categoryId}, 'Transferências', 'EXPENSE', ${userId})
+        `;
       }
 
       // 2. Verificar duplicidade (opcional)
       if (externalId) {
-        const existing = await tx.transaction.findFirst({ where: { externalId } });
-        if (existing) throw new Error('Transferência já registrada');
+        const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} AND "userId" = ${userId} LIMIT 1`;
+        if (existing && existing.length > 0) throw new Error('Transferência já registrada');
       }
 
-      // 3. Criar Saída
-      await tx.transaction.create({
-        data: {
-          description: `Saída: ${cleanDesc}`,
-          amount: Number(amount),
-          type: 'EXPENSE',
-          date: txDate,
-          categoryId: category.id,
-          accountId: fromAccountId,
-          userId: userId,
-          transferId,
-          payee,
-          payer,
-          bankRefId,
-          externalId: externalId ? `${externalId}_out` : undefined
-        }
+      const outId = crypto.randomUUID();
+      const inId = crypto.randomUUID();
+
+      // 3. Criar Saída e Entrada dentro de uma TRANSAÇÃO para garantir atomicidade
+      const absAmount = Math.abs(Number(amount));
+
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
+          VALUES (${outId}, ${`Saída: ${cleanDesc}`}, ${absAmount}, ${isoDate}, 'EXPENSE', ${categoryId}, ${fromAccountId}, ${userId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? `${externalId}_out` : null}, ${now}, ${now})
+        `;
+
+        await tx.$executeRaw`
+          INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
+          VALUES (${inId}, ${`Entrada: ${cleanDesc}`}, ${absAmount}, ${isoDate}, 'INCOME', ${categoryId}, ${toAccountId}, ${userId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? `${externalId}_in` : null}, ${now}, ${now})
+        `;
       });
 
-      // 4. Criar Entrada
-      await tx.transaction.create({
-        data: {
-          description: `Entrada: ${cleanDesc}`,
-          amount: Number(amount),
-          type: 'INCOME',
-          date: txDate,
-          categoryId: category.id,
-          accountId: toAccountId,
-          userId: userId,
-          transferId,
-          payee,
-          payer,
-          bankRefId,
-          externalId: externalId ? `${externalId}_in` : undefined
-        }
-      });
-    });
-
-    return NextResponse.json({ transferId }, { status: 201 });
+      return NextResponse.json({ transferId }, { status: 201 });
+    } catch (dbError: any) {
+      throw dbError;
+    }
   } catch (error: any) {
     console.error('Transfer API Error:', error);
     return NextResponse.json({ message: 'Erro ao processar transferência', details: error.message }, { status: 500 });

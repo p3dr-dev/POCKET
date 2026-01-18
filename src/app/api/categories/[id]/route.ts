@@ -13,11 +13,13 @@ export async function DELETE(
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
+    const userId = session.user.id;
 
     // Verificar se tem transações
-    const usageCount = await prisma.transaction.count({
-      where: { categoryId: id }
-    });
+    const counts: any[] = await prisma.$queryRaw`
+      SELECT COUNT(*) as count FROM "Transaction" WHERE "categoryId" = ${id}
+    `;
+    const usageCount = Number(counts[0]?.count || 0);
 
     if (usageCount > 0) {
       return NextResponse.json({ 
@@ -25,9 +27,9 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    await prisma.category.delete({
-      where: { id, userId: session.user.id }
-    });
+    await prisma.$executeRaw`
+      DELETE FROM "Category" WHERE id = ${id} AND "userId" = ${userId}
+    `;
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -6,6 +6,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import os from 'os';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,9 +48,13 @@ export async function POST(request: Request) {
 
     if (!text || text.length < 10) return NextResponse.json({ message: 'Não foi possível ler o comprovante (Texto insuficiente ou IA não retornou)' }, { status: 400 });
 
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Não autorizado' }, { status: 401 });
+    const userId = session.user.id;
+
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM "Category"`,
-      prisma.$queryRaw`SELECT id, name FROM "Account"`
+      prisma.$queryRaw`SELECT id, name FROM "Category" WHERE "userId" = ${userId}`,
+      prisma.$queryRaw`SELECT id, name FROM "Account" WHERE "userId" = ${userId}`
     ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
 
     const categoryList = categories.map(c => c.name).join(', ');
@@ -84,26 +89,58 @@ export async function POST(request: Request) {
 
     const aiResponse = await askAI(prompt, "Você é um assistente de entrada de dados financeiros especializado em Open Finance Brasil.");
     
-    const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : "{}");
+    // Robust JSON Extraction
+    let parsed: any = {};
+    try {
+      const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        // Clean potential markdown or extra text around JSON
+        let jsonStr = jsonMatch[0].trim();
+        parsed = JSON.parse(jsonStr);
+      } else {
+        throw new Error('JSON não encontrado na resposta da IA');
+      }
+    } catch (e) {
+      console.error('Failed to parse AI response:', aiResponse);
+      return NextResponse.json({ message: 'A IA retornou um formato inválido. Tente novamente ou use a entrada manual.' }, { status: 422 });
+    }
 
     // Gerar um hash único baseado nos dados do comprovante para evitar duplicidade
     const externalId = parsed.bankRefId ? 
       crypto.createHash('md5').update(parsed.bankRefId).digest('hex') : 
       null;
 
-    const category = categories.find(c => c.name.toLowerCase() === parsed.categoryName?.toLowerCase());
+    // Smart Matching for Category
+    const category = categories.find(c => {
+      const name = c.name.toLowerCase();
+      const aiName = parsed.categoryName?.toLowerCase() || '';
+      return name === aiName || name.includes(aiName) || aiName.includes(name);
+    });
     
-    // Tentar mapear os IDs das contas encontradas pela IA
-    const fromAccount = accounts.find(a => parsed.fromAccountName?.toLowerCase().includes(a.name.toLowerCase()) || a.name.toLowerCase().includes(parsed.fromAccountName?.toLowerCase()));
-    const toAccount = accounts.find(a => parsed.toAccountName?.toLowerCase().includes(a.name.toLowerCase()) || a.name.toLowerCase().includes(parsed.toAccountName?.toLowerCase()));
+    // Smart Matching for Accounts
+    const findAccount = (aiName: string) => {
+      if (!aiName) return null;
+      const normalizedAi = aiName.toLowerCase();
+      return accounts.find(a => {
+        const normalizedAcc = a.name.toLowerCase();
+        return normalizedAcc === normalizedAi || normalizedAcc.includes(normalizedAi) || normalizedAi.includes(normalizedAcc);
+      });
+    };
+
+    const fromAccount = findAccount(parsed.fromAccountName);
+    const toAccount = findAccount(parsed.toAccountName);
+
+    // Lógica de conta principal: se for INCOME, a conta é a de destino. Se for EXPENSE/TRANSFER, é a de origem.
+    const finalAccountId = parsed.type === 'INCOME' ? 
+      (toAccount?.id || accounts[0]?.id) : 
+      (fromAccount?.id || accounts[0]?.id);
 
     return NextResponse.json({
       ...parsed,
       categoryId: category?.id,
       fromAccountId: fromAccount?.id,
       toAccountId: toAccount?.id,
-      accountId: fromAccount?.id || accounts[0]?.id, // Fallback para conta padrão
+      accountId: finalAccountId,
       externalId
     });
 

@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import GoalModal from '@/components/modals/GoalModal';
 import GoalContributionModal from '@/components/modals/GoalContributionModal';
 import toast from 'react-hot-toast';
+import { secureFetch } from '@/lib/api-client';
 
 interface Goal {
   id: string;
@@ -29,9 +30,10 @@ export default function GoalsPage() {
   const fetchGoals = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/goals');
-      const data = await res.json();
+      const data = await secureFetch('/api/goals');
       setGoals(Array.isArray(data) ? data : []);
+    } catch {
+      setGoals([]);
     } finally {
       setIsLoading(false);
     }
@@ -42,12 +44,10 @@ export default function GoalsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este objetivo?')) return;
     try {
-      await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+      await secureFetch(`/api/goals/${id}`, { method: 'DELETE' });
       toast.success('Excluído');
       fetchGoals();
-    } catch {
-      toast.error('Erro ao excluir');
-    }
+    } catch {}
   };
 
   const handleContribute = (goal: Goal) => {
@@ -57,11 +57,15 @@ export default function GoalsPage() {
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const totalTarget = goals.reduce((acc, g) => acc + g.targetAmount, 0);
+  const totalSaved = goals.reduce((acc, g) => acc + g.currentAmount, 0);
+  const globalProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+
   return (
     <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         <header className="flex-none bg-[#F8FAFC]/80 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center border-b border-gray-100/50 z-10">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-100 lg:hidden active:scale-95 transition-transform">
@@ -80,7 +84,38 @@ export default function GoalsPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 xl:p-10 custom-scrollbar">
-          <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 pb-20">
+          <div className="max-w-screen-xl mx-auto space-y-8 pb-20">
+            {/* Summary Card */}
+            <div className="bg-black rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden group">
+               <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                  <div>
+                    <span className="text-gray-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">Total Acumulado</span>
+                    {isLoading ? (
+                      <div className="h-14 w-48 bg-white/10 rounded-xl animate-pulse mt-4" />
+                    ) : (
+                      <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalSaved)}</h2>
+                    )}
+                  </div>
+                  <div className="flex flex-col md:items-end">
+                    <span className="text-gray-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">Progresso Geral</span>
+                    {isLoading ? (
+                       <div className="h-8 w-32 bg-white/10 rounded-lg animate-pulse mt-2" />
+                    ) : (
+                      <div className="flex flex-col items-end gap-2 mt-2">
+                        <div className="text-2xl md:text-3xl font-black tabular-nums text-emerald-400">
+                          {globalProgress.toFixed(1)}%
+                        </div>
+                        <div className="h-2 w-32 md:w-48 bg-white/10 rounded-full overflow-hidden">
+                           <div className="h-full bg-emerald-400 transition-all duration-1000" style={{ width: `${globalProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+               </div>
+               <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-colors duration-700" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
              {isLoading ? (
                [...Array(4)].map((_, i) => (
                  <div key={i} className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-gray-100 flex flex-col min-h-[250px] justify-between">
@@ -169,9 +204,11 @@ export default function GoalsPage() {
                  );
                })
              )}
+            </div>
           </div>
         </div>
       </main>
+
       <GoalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchGoals} goal={editingGoal} />
       <GoalContributionModal 
         isOpen={isContributeModalOpen} 

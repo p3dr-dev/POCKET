@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { askAI } from '@/lib/ai';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ content: 'Não autorizado' }, { status: 401 });
+
     const stats = await request.json();
     
     console.log('--- AI Insights Request ---');

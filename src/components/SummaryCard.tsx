@@ -1,8 +1,10 @@
 'use client';
 
+import { formatCurrency } from '@/lib/utils';
+
 interface SummaryCardProps {
   title: string;
-  value: string;
+  value: string | number;
   type: 'income' | 'expense' | 'balance';
   change?: number; // Percentual de variação
   isLoading?: boolean;
@@ -35,9 +37,9 @@ export default function SummaryCard({ title, value, type, change, isLoading = fa
   const isGoodTrend = type === 'expense' ? !isPositiveChange : isPositiveChange;
 
   return (
-    <div className={`relative p-6 rounded-[2rem] bg-white border border-gray-100/60 shadow-sm transition-all duration-500 group overflow-hidden ${styles[type].shadow} hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between h-full`}>
-      <div className="flex justify-between items-center mb-4 relative z-10">
-        <div className={`p-3 rounded-2xl ${styles[type].bg} text-white shadow-lg transition-transform group-hover:scale-110 duration-500`}>
+    <div className={`relative p-8 rounded-[2.5rem] bg-white border border-gray-100/60 shadow-sm transition-all duration-500 group overflow-hidden ${styles[type].shadow} hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between h-full`}>
+      <div className="flex justify-between items-center mb-6 relative z-10">
+        <div className={`p-3.5 rounded-2xl ${styles[type].bg} text-white shadow-lg transition-transform group-hover:scale-110 duration-500`}>
           {styles[type].icon}
         </div>
         <div className="text-right flex flex-col items-end">
@@ -63,7 +65,7 @@ export default function SummaryCard({ title, value, type, change, isLoading = fa
         ) : (
           <>
             <span className={`text-2xl xl:text-3xl font-black tracking-tighter tabular-nums leading-none ${styles[type].text}`}>
-              {value}
+              {typeof value === 'number' ? formatCurrency(value) : value}
             </span>
             <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mt-2">Visão do Período</p>
           </>

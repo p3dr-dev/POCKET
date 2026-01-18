@@ -17,52 +17,52 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
     }
 
-    // 1. Buscar ou criar categoria "Dívidas" / "Pagamentos"
-    let category = await prisma.category.findFirst({
-      where: { 
-        userId: session.user.id,
-        name: { in: ['Dívidas', 'Pagamentos', 'Contas'] }
-      }
-    });
+    const userId = session.user.id;
+    const now = new Date().toISOString();
 
-    if (!category) {
-      category = await prisma.category.create({
-        data: {
-          name: 'Pagamento de Dívidas',
-          type: 'EXPENSE',
-          userId: session.user.id
-        }
-      });
+    // 1. Validate Debt Ownership
+    const debts: any[] = await prisma.$queryRaw`
+      SELECT id, description FROM "Debt" WHERE id = ${id} AND "userId" = ${userId} LIMIT 1
+    `;
+    if (!debts || debts.length === 0) {
+      return NextResponse.json({ message: 'Dívida não encontrada' }, { status: 404 });
     }
 
-    // 2. Buscar a dívida atual para pegar a descrição
-    const debt = await prisma.debt.findUnique({
-      where: { id, userId: session.user.id }
-    });
+    // 2. Validate Account Ownership
+    const accounts: any[] = await prisma.$queryRaw`
+      SELECT id FROM "Account" WHERE id = ${accountId} AND "userId" = ${userId} LIMIT 1
+    `;
+    if (!accounts || accounts.length === 0) {
+      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
+    }
 
-    if (!debt) return NextResponse.json({ message: 'Dívida não encontrada' }, { status: 404 });
+    // Buscar categoria de dívidas ou criar se não existir
+    const categories: any[] = await prisma.$queryRaw`
+      SELECT id FROM "Category" WHERE name = 'Dívidas' AND type = 'EXPENSE' AND "userId" = ${userId} LIMIT 1
+    `;
 
-    // 3. Transação Atômica: Atualizar Dívida + Criar Transação
-    await prisma.$transaction([
-      // Atualiza a dívida somando o valor pago
-      prisma.debt.update({
-        where: { id },
-        data: {
-          paidAmount: { increment: amount }
-        }
-      }),
-      // Cria a transação de saída
-      prisma.transaction.create({
-        data: {
-          description: `Pagamento: ${debt.description}`,
-          amount: Number(amount),
-          type: 'EXPENSE',
-          date: new Date(date),
-          accountId: accountId,
-          categoryId: category.id
-        }
-      })
-    ]);
+    let categoryId: string;
+    if (categories && categories.length > 0) {
+      categoryId = categories[0].id;
+    } else {
+      categoryId = crypto.randomUUID().substring(0, 8);
+      await prisma.$executeRaw`
+        INSERT INTO "Category" (id, name, type, "userId") 
+        VALUES (${categoryId}, 'Dívidas', 'EXPENSE', ${userId})
+      `;
+    }
+
+    // 3. Atualizar o saldo pago da dívida
+    await prisma.$executeRaw`
+      UPDATE "Debt" SET "paidAmount" = "paidAmount" + ${Number(amount)}, "updatedAt" = ${now} WHERE id = ${id} AND "userId" = ${userId}
+    `;
+
+    // 4. Criar transação de saída da conta
+    const txId = crypto.randomUUID();
+    await prisma.$executeRaw`
+      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
+      VALUES (${txId}, ${`Pagamento: ${debts[0].description}`}, ${Number(amount)}, ${now}, 'EXPENSE', ${categoryId}, ${accountId}, ${userId}, ${now}, ${now})
+    `;
 
     return NextResponse.json({ message: 'Pagamento processado com sucesso' });
   } catch (error: any) {

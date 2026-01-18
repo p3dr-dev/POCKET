@@ -31,6 +31,7 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
   const [amount, setAmount] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [accountId, setAccountId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [createTransaction, setCreateTransaction] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,11 +46,14 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
           setCurrentValue(investment.currentValue?.toString() || investment.amount.toString());
           setAccountId(investment.accountId);
           setCreateTransaction(false);
+          // @ts-ignore
+          if (investment.createdAt) setDate(new Date(investment.createdAt).toISOString().split('T')[0]);
         } else {
           setName('');
           setType('CDB');
           setAmount('');
           setCurrentValue('');
+          setDate(new Date().toISOString().split('T')[0]);
           setCreateTransaction(true);
           if (data.length > 0) setAccountId(data[0].id);
         }
@@ -76,6 +80,7 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
           amount: parseFloat(amount), 
           currentValue: parseFloat(currentValue || amount),
           accountId,
+          date,
           createTransaction: !investment && createTransaction
         }),
       });
@@ -113,16 +118,22 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
               <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" placeholder="Ex: Tesouro Selic 2029" />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
-              <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
-                <option value="CDB">CDB</option>
-                <option value="Ações">Ações</option>
-                <option value="Tesouro">Tesouro Direto</option>
-                <option value="FIIs">FIIs</option>
-                <option value="Cripto">Cripto</option>
-                <option value="ETF">ETF</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
+                <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+                  <option value="CDB">CDB</option>
+                  <option value="Ações">Ações</option>
+                  <option value="Tesouro">Tesouro Direto</option>
+                  <option value="FIIs">FIIs</option>
+                  <option value="Cripto">Cripto</option>
+                  <option value="ETF">ETF</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data do Aporte</label>
+                <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

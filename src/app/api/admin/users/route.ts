@@ -7,31 +7,24 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await auth();
-    // Verifica se é admin (por role ou email hardcoded como fallback)
-    const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
+    if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
+    // Verifica se é admin
+    const usersRes: any[] = await prisma.$queryRaw`SELECT role FROM "User" WHERE id = ${session.user.id} LIMIT 1`;
+    const userRole = usersRes[0]?.role;
     
-    if (user?.role !== 'ADMIN' && session?.user?.email !== 'pedrosimoes@example.com') { // Substitua pelo seu email real se necessário
-       // Como acabamos de adicionar a coluna, seu usuário atual deve estar com "USER". 
-       // Vou permitir que você se promova via API ou assumir que o primeiro user é admin.
-       // Para segurança, vamos verificar apenas o role. Se você não for admin, precisará editar no banco.
-       if (user?.role !== 'ADMIN') {
-         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-       }
+    if (userRole !== 'ADMIN') {
+       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        _count: {
-          select: { accounts: true, transactions: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    const users: any[] = await prisma.$queryRaw`
+      SELECT 
+        u.id, u.name, u.email, u.role, u."createdAt",
+        (SELECT COUNT(*) FROM "Account" a WHERE a."userId" = u.id) as "accountsCount",
+        (SELECT COUNT(*) FROM "Transaction" t WHERE t."userId" = u.id) as "transactionsCount"
+      FROM "User" u
+      ORDER BY u."createdAt" DESC
+    `;
 
     return NextResponse.json(users);
   } catch (error) {

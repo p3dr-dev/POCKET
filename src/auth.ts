@@ -20,11 +20,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (parsedCredentials.success) {
           const { email, password } = parsedCredentials.data;
           
-          const user = await prisma.user.findUnique({
-            where: { email },
-          });
+          const users: any[] = await prisma.$queryRaw`
+            SELECT * FROM "User" WHERE email = ${email} LIMIT 1
+          `;
 
-          if (!user) return null;
+          if (!users || users.length === 0) return null;
+          const user = users[0];
 
           const passwordsMatch = await bcrypt.compare(password, user.password);
           if (passwordsMatch) return user;

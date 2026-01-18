@@ -1,3 +1,13 @@
+export const formatCurrency = (value: number | string) => {
+  const amount = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(amount)) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
+};
+
+export const formatDate = (date: string | Date) => {
+  return new Date(date).toLocaleDateString('pt-BR');
+};
+
 export const downloadCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
 
@@ -13,7 +23,8 @@ export const downloadCSV = (data: any[], filename: string) => {
       .join(',')
   );
 
-  const csvContent = [headers, ...rows].join('\n');
+  // Adicionar BOM UTF-8 para garantir compatibilidade com acentos no Excel
+  const csvContent = '\uFEFF' + [headers, ...rows].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   

@@ -21,6 +21,7 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
   const [name, setName] = useState('');
   const [type, setType] = useState<Account['type']>('BANK');
   const [color, setColor] = useState('#000000');
+  const [initialBalance, setInitialBalance] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -29,10 +30,12 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
         setName(account.name);
         setType(account.type);
         setColor(account.color || '#000000');
+        setInitialBalance('');
       } else {
         setName('');
         setType('BANK');
         setColor('#000000');
+        setInitialBalance('0');
       }
     }
   }, [isOpen, account]);
@@ -50,7 +53,12 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, color }),
+        body: JSON.stringify({ 
+          name, 
+          type, 
+          color, 
+          initialBalance: !account ? parseFloat(initialBalance || '0') : undefined 
+        }),
       });
 
       if (!res.ok) throw new Error();
@@ -96,20 +104,36 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Ativo</label>
-              <select
-                required
-                value={type}
-                onChange={(e) => setType(e.target.value as any)}
-                className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none"
-              >
-                <option value="BANK">Conta Bancária</option>
-                <option value="CASH">Dinheiro em Espécie</option>
-                <option value="CREDIT_CARD">Cartão de Crédito</option>
-                <option value="CRYPTO">Cripto / Exchange</option>
-                <option value="INVESTMENT">Investimentos / Corretora</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Ativo</label>
+                <select
+                  required
+                  value={type}
+                  onChange={(e) => setType(e.target.value as any)}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none"
+                >
+                  <option value="BANK">Conta Bancária</option>
+                  <option value="CASH">Dinheiro em Espécie</option>
+                  <option value="CREDIT_CARD">Cartão de Crédito</option>
+                  <option value="CRYPTO">Cripto / Exchange</option>
+                  <option value="INVESTMENT">Investimentos / Corretora</option>
+                </select>
+              </div>
+
+              {!account && (
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Saldo Inicial</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={initialBalance}
+                    onChange={(e) => setInitialBalance(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all"
+                    placeholder="0,00"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">

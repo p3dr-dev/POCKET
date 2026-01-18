@@ -46,13 +46,37 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const id = Math.random().toString(36).substring(2, 15);
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
+    const userId = session.user.id;
 
     await prisma.$executeRaw`
       INSERT INTO "Account" (id, name, type, color, "userId", "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${body.type}::"AccountType", ${body.color}, ${session.user.id}, ${now}::timestamp, ${now}::timestamp)
+      VALUES (${id}, ${body.name}, ${body.type}, ${body.color || '#000000'}, ${userId}, ${now}, ${now})
     `;
+
+    // Se houver saldo inicial, criar transação de ajuste
+    if (body.initialBalance && Number(body.initialBalance) !== 0) {
+      const txId = crypto.randomUUID();
+      const amount = Number(body.initialBalance);
+      const type = amount > 0 ? 'INCOME' : 'EXPENSE';
+      
+      // Buscar ou criar categoria "Ajuste"
+      let categoryId: string;
+      const categories: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Ajuste de Saldo' AND "userId" = ${userId} LIMIT 1`;
+      
+      if (categories && categories.length > 0) {
+        categoryId = categories[0].id;
+      } else {
+        categoryId = crypto.randomUUID().substring(0, 8);
+        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${categoryId}, 'Ajuste de Saldo', 'INCOME', ${userId})`;
+      }
+
+      await prisma.$executeRaw`
+        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
+        VALUES (${txId}, 'Saldo Inicial', ${Math.abs(amount)}, ${now}, ${type}, ${categoryId}, ${id}, ${userId}, ${now}, ${now})
+      `;
+    }
 
     return NextResponse.json({ id, name: body.name }, { status: 201 });
   } catch (error) {

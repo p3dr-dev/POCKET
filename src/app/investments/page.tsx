@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import InvestmentModal from '@/components/modals/InvestmentModal';
+import InvestmentRedeemModal from '@/components/modals/InvestmentRedeemModal';
 import toast from 'react-hot-toast';
 
 interface Investment {
@@ -19,8 +20,12 @@ export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
+  const [redeemingInvestment, setRedeemingInvestment] = useState<Investment | null>(null);
 
   const fetchInvestments = async () => {
     setIsLoading(true);
@@ -51,6 +56,11 @@ export default function InvestmentsPage() {
   const handleEdit = (inv: Investment) => {
     setEditingInvestment(inv);
     setIsModalOpen(true);
+  };
+
+  const handleRedeem = (inv: Investment) => {
+    setRedeemingInvestment(inv);
+    setIsRedeemModalOpen(true);
   };
 
   const totalInvested = investments.reduce((acc, i) => acc + i.amount, 0);
@@ -164,6 +174,9 @@ export default function InvestmentsPage() {
                                {isPositive ? '+' : ''}{yieldPercent.toFixed(2)}%
                             </div>
                             <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-all">
+                                <button onClick={() => handleRedeem(inv)} className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-emerald-600 transition-colors" title="Resgatar">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                </button>
                                 <button onClick={() => handleEdit(inv)} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                 </button>
@@ -209,6 +222,12 @@ export default function InvestmentsPage() {
       </main>
 
       <InvestmentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchInvestments} investment={editingInvestment} />
+      <InvestmentRedeemModal 
+        isOpen={isRedeemModalOpen} 
+        onClose={() => setIsRedeemModalOpen(false)} 
+        onSuccess={fetchInvestments} 
+        investment={redeemingInvestment} 
+      />
     </div>
   );
 }

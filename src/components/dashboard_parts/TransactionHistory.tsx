@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { formatCurrency } from '@/lib/utils';
 
 interface Transaction {
   id: string;
@@ -76,8 +77,6 @@ export default function TransactionHistory({
     return groups;
   }, [filteredTransactions]);
 
-  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
   return (
     <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100/50 flex flex-col overflow-hidden h-full">
       <div className="p-6 md:p-8 border-b border-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -86,7 +85,7 @@ export default function TransactionHistory({
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2">
               <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase">{selectedIds.length} selecionados</span>
-              <button onClick={onDeleteBulk} className="text-[10px] font-black text-rose-600 hover:underline uppercase">Excluir</button>
+              <button onClick={onDeleteBulk} aria-label="Excluir selecionados" className="text-[10px] font-black text-rose-600 hover:underline uppercase">Excluir</button>
             </div>
           )}
         </div>
@@ -96,6 +95,7 @@ export default function TransactionHistory({
             placeholder="Pesquisar..." 
             value={searchQuery} 
             onChange={(e) => onSearchChange(e.target.value)} 
+            aria-label="Pesquisar histórico"
             className="w-full md:w-64 bg-gray-50 border-2 border-transparent focus:border-black rounded-xl py-2 px-4 text-xs font-bold outline-none transition-all" 
           />
         </div>
@@ -123,7 +123,7 @@ export default function TransactionHistory({
         ) : (
           Object.keys(groupedTransactions).map((dateGroup) => (
             <div key={dateGroup} className="space-y-3">
-              <h3 className="px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-2">
+              <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-4">
                 {dateGroup}
               </h3>
               <div className="space-y-2">
@@ -152,10 +152,10 @@ export default function TransactionHistory({
                         {t.description}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-gray-100 text-gray-400'}`}>
                           {t.category.name}
                         </span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-indigo-50 text-indigo-500'}`}>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-indigo-50 text-indigo-400'}`}>
                           {t.account.name}
                         </span>
                       </div>
@@ -169,6 +169,7 @@ export default function TransactionHistory({
                     {/* Edit Button */}
                     <button 
                       onClick={(e) => { e.stopPropagation(); onEdit(t); }}
+                      aria-label="Editar transação"
                       className={`absolute right-2 top-2 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden md:block
                         ${selectedIds.includes(t.id) ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-200 text-gray-400'}`}
                     >

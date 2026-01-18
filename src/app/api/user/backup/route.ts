@@ -12,21 +12,14 @@ export async function GET() {
     }
     const userId = session.user.id;
 
-    const [accounts, categories, transactions, investments, debts, goals] = await Promise.all([
+    const [accounts, categories, transactions, investments, debts, goals, recurring] = await Promise.all([
       prisma.$queryRaw`SELECT * FROM "Account" WHERE "userId" = ${userId}`,
       prisma.$queryRaw`SELECT * FROM "Category" WHERE "userId" = ${userId}`,
-      // Transactions are linked to Account, which is linked to User.
-      // But Transaction doesn't have userId directly in my schema?
-      // Let's check schema.
-      // Schema: Transaction -> Account -> User.
-      // So I need to join or filter by account ownership.
-      // BUT, I can query by finding accounts first?
-      // Or use a JOIN.
-      // prisma.$queryRaw`SELECT t.* FROM "Transaction" t JOIN "Account" a ON t."accountId" = a.id WHERE a."userId" = ${userId}`
-      prisma.$queryRaw`SELECT t.* FROM "Transaction" t JOIN "Account" a ON t."accountId" = a.id WHERE a."userId" = ${userId}`,
+      prisma.$queryRaw`SELECT * FROM "Transaction" WHERE "userId" = ${userId}`,
       prisma.$queryRaw`SELECT * FROM "Investment" WHERE "userId" = ${userId}`,
       prisma.$queryRaw`SELECT * FROM "Debt" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Goal" WHERE "userId" = ${userId}`
+      prisma.$queryRaw`SELECT * FROM "Goal" WHERE "userId" = ${userId}`,
+      prisma.$queryRaw`SELECT * FROM "RecurringTransaction" WHERE "userId" = ${userId}`
     ]);
 
     const data = {
@@ -36,8 +29,9 @@ export async function GET() {
       investments,
       debts,
       goals,
+      recurring,
       exportDate: new Date().toISOString(),
-      version: '1.0'
+      version: '1.1'
     };
 
     return NextResponse.json(data);
