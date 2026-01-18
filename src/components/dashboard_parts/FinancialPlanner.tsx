@@ -87,23 +87,3 @@ export default function FinancialPlanner({
     </div>
   );
 }
-
-      <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-          </div>
-          <div>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Meta Diária Restante</p>
-            {isLoading ? (
-               <div className="h-7 w-24 bg-gray-100 rounded-lg animate-pulse mt-1" />
-            ) : (
-               <p className="text-lg font-black text-gray-900 mt-1">{formatCurrency(dailyGoal)}</p>
-            )}
-          </div>
-        </div>
-        <p className="text-[10px] font-bold text-gray-300 max-w-[100px] text-right italic">Baseado nos dias restantes do mês atual.</p>
-      </div>
-    </div>
-  );
-}
