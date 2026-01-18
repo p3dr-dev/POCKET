@@ -165,10 +165,18 @@ export default function Dashboard() {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
     
-    // FÓRMULA DE ALTA PRECISÃO RECALIBRADA:
-    // (Saldo Atual + Ganhos Esperados - Dívidas Pendentes - Custos Fixos - Reserva Metas) / Dias Restantes
+    // CÁLCULO MULTICAMADA:
     const totalCommitments = monthDebtsRemaining + monthlyFixedCost;
-    const dailyGoal = (accBalance + pendingIncomes - totalCommitments - goalTarget) / daysRemaining;
+    
+    // 1. Limite de Sobrevivência (Saldo + Ganhos - Dívidas - Fixos)
+    const survivalLimit = (accBalance + pendingIncomes - totalCommitments) / daysRemaining;
+    
+    // 2. Limite Ideal (Sobrevivência - Metas)
+    const idealLimit = survivalLimit - (goalTarget / daysRemaining);
+
+    // Se o ideal for negativo, focamos no survival mas avisamos
+    const dailyGoal = idealLimit < 0 ? survivalLimit : idealLimit;
+    const isSacrificingGoals = idealLimit < 0 && survivalLimit > 0;
 
     return {
       netWorth: accBalance + invTotal,
@@ -181,6 +189,9 @@ export default function Dashboard() {
       monthlyFixedCost,
       totalCommitments,
       dailyGoal,
+      idealLimit,
+      isSacrificingGoals,
+      revenueGap: healthData?.revenueGap || 0,
       liquid: accBalance
     };
   }, [accounts, investments, debts, transactions, subscriptions, healthData, timeView]);

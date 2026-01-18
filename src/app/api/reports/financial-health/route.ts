@@ -84,7 +84,12 @@ export async function GET() {
       return acc + amount;
     }, 0);
 
-    // 6. Net Worth
+    // 6. Calcular Gap de Receita
+    const totalRequired = debtTotal + monthlyFixedCost + monthlyGoalTarget;
+    const totalAvailable = liquidTotal + investmentGain; // Consideramos lucro de investimento como disponível
+    const revenueGap = Math.max(0, totalRequired - totalAvailable);
+
+    // 7. Net Worth
     const netWorth = liquidTotal + investmentTotal - debtTotal;
 
     return NextResponse.json({
@@ -95,6 +100,8 @@ export async function GET() {
       monthlyGoalTarget,
       debtTotal,
       monthlyFixedCost,
+      totalRequired,
+      revenueGap,
       netWorth,
       healthScore: calculateHealthScore(liquidTotal, debtTotal + monthlyFixedCost + monthlyGoalTarget, investmentTotal)
     });
