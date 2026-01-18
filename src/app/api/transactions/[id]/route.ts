@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,10 +9,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const { id } = await params;
     const body = await request.json();
     const now = new Date().toISOString();
+    
+    // Garantir formato ISO correto para o banco
     const txDate = new Date(body.date).toISOString();
+
+    // Validar propriedade antes de atualizar
+    const existing = await prisma.transaction.findFirst({
+      where: { id, userId: session.user.id }
+    });
+
+    if (!existing) return NextResponse.json({ message: 'Transação não encontrada' }, { status: 404 });
 
     await prisma.$executeRaw`
       UPDATE "Transaction" 
@@ -26,7 +39,7 @@ export async function PUT(
         payer = ${body.payer || null},
         "bankRefId" = ${body.bankRefId || null},
         "updatedAt" = ${now}::timestamp
-      WHERE id = ${id}
+      WHERE id = ${id} AND "userId" = ${session.user.id}
     `;
 
     return NextResponse.json({ id });
@@ -41,8 +54,18 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const { id } = await params;
-    await prisma.$executeRaw`DELETE FROM "Transaction" WHERE id = ${id}`;
+    
+    // Deletar apenas se pertencer ao usuário
+    const result: number = await prisma.$executeRaw`DELETE FROM "Transaction" WHERE id = ${id} AND "userId" = ${session.user.id}`;
+    
+    if (result === 0) {
+       return NextResponse.json({ message: 'Transação não encontrada ou não autorizada' }, { status: 404 });
+    }
+
     return NextResponse.json({ message: 'Transação excluída' });
   } catch (error: any) {
     console.error('DELETE Transaction Error:', error);

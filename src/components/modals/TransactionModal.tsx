@@ -356,6 +356,7 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                       <input 
                         required 
                         type="datetime-local" 
+                        step="1"
                         value={date} 
                         onChange={e => setDate(e.target.value)} 
                         className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all ${

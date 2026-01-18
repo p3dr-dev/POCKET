@@ -96,7 +96,14 @@ export default function TransactionTable({ transactions, isLoading, onEdit, onDe
           <tbody className="divide-y divide-gray-50">
             {transactions.map((t) => (
               <tr key={t.id} className="group hover:bg-gray-50/80 transition-all">
-                <td className="px-6 py-5 text-xs font-bold text-gray-400 tabular-nums">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                <td className="px-6 py-5 text-xs font-bold text-gray-400 tabular-nums">
+                  <div className="flex flex-col">
+                    <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-[9px] text-gray-300 font-normal">
+                      {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </td>
                 <td className="px-6 py-5">
                   <div className="flex flex-col">
                     <span className="font-black text-gray-900 text-sm">{t.description}</span>

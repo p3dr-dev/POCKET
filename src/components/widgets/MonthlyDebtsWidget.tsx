@@ -20,7 +20,10 @@ export default function MonthlyDebtsWidget({ debts }: { debts: Debt[] }) {
       .filter(d => {
         if (!d.dueDate) return false;
         const date = new Date(d.dueDate);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+        const isThisMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+        const isOverdueAndUnpaid = date < now && d.paidAmount < d.totalAmount;
+        
+        return isThisMonth || isOverdueAndUnpaid;
       })
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }, [debts]);
