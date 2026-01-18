@@ -25,6 +25,10 @@ interface InvestmentModalProps {
 }
 
 export default function InvestmentModal({ isOpen, onClose, onSuccess, investment }: InvestmentModalProps) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [name, setName] = useState('');
+  const [type, setType] = useState('CDB');
+  const [amount, setAmount] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [accountId, setAccountId] = useState('');
   const [createTransaction, setCreateTransaction] = useState(true);
@@ -40,13 +44,13 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
           setAmount(investment.amount.toString());
           setCurrentValue(investment.currentValue?.toString() || investment.amount.toString());
           setAccountId(investment.accountId);
-          setCreateTransaction(false); // Edição geralmente não recria transação
+          setCreateTransaction(false);
         } else {
           setName('');
           setType('CDB');
           setAmount('');
           setCurrentValue('');
-          setCreateTransaction(true); // Novo registro padrão = debitar
+          setCreateTransaction(true);
           if (data.length > 0) setAccountId(data[0].id);
         }
       });
@@ -72,10 +76,66 @@ export default function InvestmentModal({ isOpen, onClose, onSuccess, investment
           amount: parseFloat(amount), 
           currentValue: parseFloat(currentValue || amount),
           accountId,
-          createTransaction: !investment && createTransaction // Só envia true se for novo e checkbox marcado
+          createTransaction: !investment && createTransaction
         }),
       });
-// ... (rest of code inside return, before button)
+
+      if (!res.ok) throw new Error();
+      toast.success(investment ? 'Ativo atualizado' : 'Ativo registrado');
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('Erro ao salvar');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
+      
+      <div className="relative bg-white w-full max-w-md max-h-[95dvh] md:max-h-[90vh] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl transform animate-in zoom-in-95 duration-300 flex flex-col">
+        <div className="flex-none p-6 md:p-8 pb-4 flex justify-between items-center border-b border-gray-50">
+          <div>
+            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">{investment ? 'Ajustar Ativo' : 'Novo Investimento'}</h2>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Gestão de Patrimônio</p>
+          </div>
+          <button onClick={onClose} className="p-2.5 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors active:scale-90">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-6 custom-scrollbar">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome do Ativo</label>
+              <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" placeholder="Ex: Tesouro Selic 2029" />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
+              <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+                <option value="CDB">CDB</option>
+                <option value="Ações">Ações</option>
+                <option value="Tesouro">Tesouro Direto</option>
+                <option value="FIIs">FIIs</option>
+                <option value="Cripto">Cripto</option>
+                <option value="ETF">ETF</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor Investido</label>
+                <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="0,00" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor de Mercado</label>
+                <input type="number" step="0.01" value={currentValue} onChange={e => setCurrentValue(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="Opcional" />
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Conta de Custódia</label>
               <select required value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
