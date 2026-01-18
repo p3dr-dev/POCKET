@@ -8,12 +8,15 @@ import toast from 'react-hot-toast';
 interface Subscription {
   id: string;
   description: string;
-  amount: number;
+  amount: number | null;
+  type: 'INCOME' | 'EXPENSE';
   frequency: string;
-  nextRun: string;
+  nextRun: string | null;
   active: boolean;
-  category: { name: string };
-  account: { name: string };
+  categoryId: string;
+  accountId: string;
+  category: { id: string, name: string };
+  account: { id: string, name: string };
 }
 
 export default function SubscriptionsPage() {

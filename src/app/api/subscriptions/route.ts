@@ -13,8 +13,8 @@ export async function GET() {
     const subs = await prisma.recurringTransaction.findMany({
       where: { userId: session.user.id },
       include: {
-        category: { select: { name: true } },
-        account: { select: { name: true } }
+        category: { select: { id: true, name: true } },
+        account: { select: { id: true, name: true } }
       },
       orderBy: { nextRun: 'asc' }
     });
@@ -47,10 +47,10 @@ export async function POST(request: Request) {
     const sub = await prisma.recurringTransaction.create({
       data: {
         description: body.description,
-        amount: Math.abs(Number(body.amount)),
+        amount: body.amount !== null ? Math.abs(Number(body.amount)) : null,
         type: body.type,
         frequency: body.frequency,
-        nextRun: new Date(body.nextRun),
+        nextRun: body.nextRun ? new Date(body.nextRun) : null,
         active: true,
         categoryId: body.categoryId,
         accountId: body.accountId,
