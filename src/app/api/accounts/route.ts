@@ -11,13 +11,14 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const includeTransactions = searchParams.get('includeTransactions') === 'true';
+    const userId = session.user.id;
 
     const accounts: any[] = await prisma.$queryRaw`
       SELECT a.*, 
         (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance,
         (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as "investmentTotal"
       FROM "Account" a
-      WHERE a."userId" = ${session.user.id}
+      WHERE a."userId" = ${userId}
     `;
 
     if (!Array.isArray(accounts)) return NextResponse.json([]);
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     if (includeTransactions) {
       const results = await Promise.all(accounts.map(async (acc) => {
         const txs: any[] = await prisma.$queryRaw`
-          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id} AND "userId" = ${session.user.id}
+          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id} AND "userId" = ${userId}
         `;
         return { ...acc, transactions: txs || [] };
       }));
