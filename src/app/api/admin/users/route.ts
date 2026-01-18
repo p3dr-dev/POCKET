@@ -27,7 +27,7 @@ export async function GET() {
         role: true,
         createdAt: true,
         _count: {
-          select: { accounts: true, transactions: true }
+          select: { accounts: true }
         }
       },
       orderBy: { createdAt: 'desc' }

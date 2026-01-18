@@ -12,9 +12,12 @@ interface User {
   createdAt: string;
   _count: {
     accounts: number;
-    transactions: number;
   };
 }
+// ...
+                    <td className="px-6 py-4 text-xs font-bold text-gray-500">
+                      {user._count.accounts} contas cadastradas
+                    </td>
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
