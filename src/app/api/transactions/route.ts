@@ -1,25 +1,45 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json([]);
 
-    const transactions = await prisma.$queryRaw`
-      SELECT 
-        t.*, 
-        c.name as "categoryName", 
-        a.name as "accountName"
-      FROM "Transaction" t
-      LEFT JOIN "Category" c ON t."categoryId" = c.id
-      LEFT JOIN "Account" a ON t."accountId" = a.id
-      WHERE t."userId" = ${session.user.id}
-      ORDER BY t.date DESC
-    `;
+    const { searchParams } = new URL(request.url);
+    const accountId = searchParams.get('accountId');
+
+    let transactions;
+
+    if (accountId) {
+      transactions = await prisma.$queryRaw`
+        SELECT 
+          t.*, 
+          c.name as "categoryName", 
+          a.name as "accountName"
+        FROM "Transaction" t
+        LEFT JOIN "Category" c ON t."categoryId" = c.id
+        LEFT JOIN "Account" a ON t."accountId" = a.id
+        WHERE t."userId" = ${session.user.id} AND t."accountId" = ${accountId}
+        ORDER BY t.date DESC
+      `;
+    } else {
+      transactions = await prisma.$queryRaw`
+        SELECT 
+          t.*, 
+          c.name as "categoryName", 
+          a.name as "accountName"
+        FROM "Transaction" t
+        LEFT JOIN "Category" c ON t."categoryId" = c.id
+        LEFT JOIN "Account" a ON t."accountId" = a.id
+        WHERE t."userId" = ${session.user.id}
+        ORDER BY t.date DESC
+      `;
+    }
 
     if (!Array.isArray(transactions)) return NextResponse.json([]);
 
