@@ -27,6 +27,20 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
+    const userId = session.user.id;
+
+    // Validar se o usuário existe no banco para evitar P2003
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    });
+
+    if (!userExists) {
+      return NextResponse.json({ 
+        message: 'Sessão inválida ou usuário não encontrado. Por favor, saia (Logout) e entre novamente no sistema.' 
+      }, { status: 403 });
+    }
+
     const type = body.type || 'SINGLE';
     const count = type === 'SINGLE' ? 1 : (body.installmentsCount || 2);
     
@@ -37,7 +51,6 @@ export async function POST(request: Request) {
     }
 
     const groupId = type !== 'SINGLE' ? crypto.randomUUID() : null;
-    const userId = session.user.id;
     const debtsData = [];
 
     for (let i = 0; i < count; i++) {

@@ -53,9 +53,9 @@ export async function POST(request: Request) {
     const userId = session.user.id;
 
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM "Category" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT id, name FROM "Account" WHERE "userId" = ${userId}`
-    ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
+      prisma.category.findMany({ where: { userId }, select: { id: true, name: true } }),
+      prisma.account.findMany({ where: { userId }, select: { id: true, name: true } })
+    ]);
 
     const categoryList = categories.map(c => c.name).join(', ');
     const accountList = accounts.map(a => a.name).join(', ');

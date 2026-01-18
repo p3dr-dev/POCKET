@@ -15,13 +15,14 @@ export async function POST(request: Request) {
 
     const userId = session.user.id;
 
-    // Exclusão em massa segura e autenticada
-    await prisma.$executeRaw`
-      DELETE FROM "Debt" 
-      WHERE id IN (${Prisma.join(ids)}) AND "userId" = ${userId}
-    `;
+    const result = await prisma.debt.deleteMany({
+      where: {
+        id: { in: ids },
+        userId
+      }
+    });
 
-    return NextResponse.json({ success: true, message: `${ids.length} compromissos excluídos` });
+    return NextResponse.json({ success: true, message: `${result.count} compromissos excluídos` });
   } catch (error) {
     console.error('Bulk Delete Debt Error:', error);
     return NextResponse.json({ message: 'Erro ao excluir compromissos' }, { status: 500 });

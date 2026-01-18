@@ -15,33 +15,37 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, password } = registerSchema.parse(body);
 
-    const existingUsers: any[] = await prisma.$queryRaw`
-      SELECT id FROM "User" WHERE email = ${email} LIMIT 1
-    `;
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
 
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingUser) {
       return NextResponse.json({ message: 'Email já cadastrado.' }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userCountResult: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM "User"`;
-    const userCount = Number(userCountResult[0].count);
+    const userCount = await prisma.user.count();
     const role = userCount === 0 ? 'ADMIN' : 'USER';
-    const userId = crypto.randomUUID();
-    const now = new Date().toISOString();
 
-    await prisma.$executeRaw`
-      INSERT INTO "User" (id, name, email, password, role, "createdAt", "updatedAt")
-      VALUES (${userId}, ${name}, ${email}, ${hashedPassword}, ${role}, ${now}, ${now})
-    `;
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role
+      }
+    });
 
     // --- MIGRAÇÃO AUTOMÁTICA DE DADOS ORFÃOS ---
-    await prisma.$executeRaw`UPDATE "Account" SET "userId" = ${userId} WHERE "userId" IS NULL`;
-    await prisma.$executeRaw`UPDATE "Category" SET "userId" = ${userId} WHERE "userId" IS NULL`;
-    await prisma.$executeRaw`UPDATE "Goal" SET "userId" = ${userId} WHERE "userId" IS NULL`;
-    await prisma.$executeRaw`UPDATE "Debt" SET "userId" = ${userId} WHERE "userId" IS NULL`;
-    await prisma.$executeRaw`UPDATE "Investment" SET "userId" = ${userId} WHERE "userId" IS NULL`;
-    await prisma.$executeRaw`UPDATE "Transaction" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    const userId = user.id;
+    await prisma.$transaction([
+      prisma.account.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.category.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.goal.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.debt.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.investment.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.transaction.updateMany({ where: { userId: null }, data: { userId } }),
+    ]);
 
     // --- CRIAR CATEGORIAS PADRÃO ---
     const defaultCategories = [
@@ -57,14 +61,15 @@ export async function POST(request: Request) {
       { name: 'Outros', type: 'EXPENSE' }
     ];
 
-    for (const cat of defaultCategories) {
-      const catId = crypto.randomUUID().substring(0, 8);
-      await prisma.$executeRaw`
-        INSERT INTO "Category" (id, name, type, "userId")
-        VALUES (${catId}, ${cat.name}, ${cat.type}, ${userId})
-        ON CONFLICT DO NOTHING
-      `;
-    }
+    await Promise.all(
+      defaultCategories.map(cat => 
+        prisma.category.upsert({
+          where: { name_userId: { name: cat.name, userId } },
+          update: {},
+          create: { ...cat, userId }
+        })
+      )
+    );
 
     return NextResponse.json({ message: 'Usuário criado com sucesso' }, { status: 201 });
   } catch (error: any) {

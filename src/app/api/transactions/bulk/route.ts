@@ -17,13 +17,14 @@ export async function POST(request: Request) {
 
     const userId = session.user.id;
     
-    // Deletar transações em massa filtrando pelo userId para segurança total
-    await prisma.$executeRaw`
-      DELETE FROM "Transaction" 
-      WHERE id IN (${Prisma.join(ids)}) AND "userId" = ${userId}
-    `;
+    const result = await prisma.transaction.deleteMany({
+      where: {
+        id: { in: ids },
+        userId
+      }
+    });
 
-    return NextResponse.json({ message: `${ids.length} transações excluídas` });
+    return NextResponse.json({ message: `${result.count} transações excluídas` });
   } catch (error) {
     console.error('Bulk Delete Error:', error);
     return NextResponse.json({ message: 'Erro na exclusão em massa' }, { status: 500 });

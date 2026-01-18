@@ -366,13 +366,14 @@ export async function POST(request: Request) {
     const userId = session.user.id;
 
     // Validate Account Ownership
-    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${accountId} AND "userId" = ${userId} LIMIT 1`;
-    if (!account || account.length === 0) {
+    const account = await prisma.account.findUnique({
+      where: { id: accountId, userId }
+    });
+    if (!account) {
       return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const now = new Date().toISOString();
     
     let parsedTxs: ParsedTransaction[] = [];
     if (file.name.toLowerCase().endsWith('.pdf')) parsedTxs = await parseAdvancedPDF(buffer);
@@ -382,7 +383,9 @@ export async function POST(request: Request) {
 
     if (parsedTxs.length === 0) return NextResponse.json({ message: 'Nenhuma transação encontrada.' }, { status: 400 });
 
-    const categories: any[] = await prisma.$queryRaw`SELECT * FROM "Category" WHERE "userId" = ${userId}`;
+    const categories = await prisma.category.findMany({
+      where: { userId }
+    });
     const suggestedNames = await batchGetSmartCategories(parsedTxs, categories);
 
     let importedCount = 0;
@@ -395,36 +398,44 @@ export async function POST(request: Request) {
       
       if (processedInBatch.has(externalId)) continue;
 
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} AND "accountId" = ${accountId} LIMIT 1`;
+      const existing = await prisma.transaction.findUnique({
+        where: { externalId_accountId: { externalId, accountId } }
+      });
 
-      if (existing.length === 0) {
+      if (!existing) {
         const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
         let category = categories.find(c => c.name.toLowerCase() === suggestedName.toLowerCase() && c.type === type);
         
         let catId: string;
         if (!category) {
-          catId = crypto.randomUUID().substring(0, 8);
-          await prisma.$executeRaw`
-            INSERT INTO "Category" (id, name, type, "userId") 
-            VALUES (${catId}, ${suggestedName}, ${type}, ${userId})
-          `;
-          categories.push({ id: catId, name: suggestedName, type });
+          const newCat = await prisma.category.create({
+            data: { name: suggestedName, type, userId }
+          });
+          catId = newCat.id;
+          categories.push(newCat);
         } else {
           catId = category.id;
         }
         
         const txDate = tx.date.includes('T') ? tx.date : `${tx.date}T12:00:00.000Z`;
-        const isoDate = new Date(txDate).toISOString();
-        const txId = crypto.randomUUID();
+        const isoDate = new Date(txDate);
 
-                      await prisma.$executeRaw`
-                        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
-                        VALUES (
-                          ${txId}, ${tx.description}, ${Math.abs(tx.amount)}, ${isoDate}, ${type}, 
-                          ${catId}, ${accountId}, ${userId}, ${tx.payee || null}, ${tx.payer || null}, 
-                          ${tx.bankRefId || null}, ${externalId}, ${now}, ${now}
-                        )
-                      `;        
+        await prisma.transaction.create({
+          data: {
+            description: tx.description,
+            amount: Math.abs(tx.amount),
+            date: isoDate,
+            type,
+            categoryId: catId,
+            accountId,
+            userId,
+            payee: tx.payee || null,
+            payer: tx.payer || null,
+            bankRefId: tx.bankRefId || null,
+            externalId
+          }
+        });
+        
         importedCount++;
         processedInBatch.add(externalId);
       }

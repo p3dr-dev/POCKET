@@ -11,36 +11,29 @@ export async function GET(request: Request) {
     if (!session?.user?.id) return NextResponse.json([]);
     const userId = session.user.id;
 
-    // Fetch accounts with raw SQL
-    const accounts: any[] = await prisma.$queryRaw`
-      SELECT * FROM "Account" WHERE "userId" = ${userId} ORDER BY name ASC
-    `;
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      include: {
+        transactions: { select: { amount: true, type: true } },
+        investments: { select: { amount: true, currentValue: true } },
+        _count: { select: { transactions: true } }
+      },
+      orderBy: { name: 'asc' }
+    });
 
-    // Fetch transactions and investments to calculate balances
-    // Doing this in separate raw queries to maintain control
-    const transactions: any[] = await prisma.$queryRaw`
-      SELECT "accountId", amount, type FROM "Transaction" WHERE "userId" = ${userId}
-    `;
-
-    const investments: any[] = await prisma.$queryRaw`
-      SELECT "accountId", amount, "currentValue" FROM "Investment" WHERE "userId" = ${userId}
-    `;
-
-    // Calculate balances programmatically
     const results = accounts.map(acc => {
-      const accTxs = transactions.filter(t => t.accountId === acc.id);
-      const balance = accTxs.reduce((sum, t) => 
+      const balance = acc.transactions.reduce((sum, t) => 
         t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
       
-      const accInvs = investments.filter(i => i.accountId === acc.id);
-      const investmentTotal = accInvs.reduce((sum, i) => 
+      const investmentTotal = acc.investments.reduce((sum, i) => 
         sum + (i.currentValue || i.amount), 0) || 0;
 
       return {
         ...acc,
         balance,
         investmentTotal,
-        _count: { transactions: accTxs.length }
+        transactions: undefined, // Remover do retorno para economizar banda
+        investments: undefined
       };
     });
 
@@ -58,45 +51,67 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const userId = session.user.id;
-    const accountId = crypto.randomUUID();
-    const now = new Date().toISOString();
+    
+    // Validar se o usuário existe no banco para evitar P2003
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    });
 
-    await prisma.$executeRaw`
-      INSERT INTO "Account" (id, name, type, color, "userId", "createdAt", "updatedAt")
-      VALUES (${accountId}, ${body.name}, ${body.type}, ${body.color || '#000000'}, ${userId}, ${now}, ${now})
-    `;
-
-    // If there is an initial balance, create an adjustment transaction
-    if (body.initialBalance && Number(body.initialBalance) !== 0) {
-      const amount = Number(body.initialBalance);
-      const type = amount > 0 ? 'INCOME' : 'EXPENSE';
-      
-      // Get or create "Ajuste de Saldo" category
-      const categories: any[] = await prisma.$queryRaw`
-        SELECT id FROM "Category" WHERE name = 'Ajuste de Saldo' AND "userId" = ${userId} LIMIT 1
-      `;
-      
-      let categoryId: string;
-      if (!categories || categories.length === 0) {
-        categoryId = crypto.randomUUID().substring(0, 8);
-        await prisma.$executeRaw`
-          INSERT INTO "Category" (id, name, type, "userId")
-          VALUES (${categoryId}, 'Ajuste de Saldo', 'INCOME', ${userId})
-        `;
-      } else {
-        categoryId = categories[0].id;
-      }
-
-      const txId = crypto.randomUUID();
-      const fingerprint = crypto.createHash('md5').update(`${now}|initial-balance|${accountId}`).digest('hex');
-
-      await prisma.$executeRaw`
-        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "externalId", "createdAt", "updatedAt")
-        VALUES (${txId}, 'Saldo Inicial', ${Math.abs(amount)}, ${now}, ${type}, ${categoryId}, ${accountId}, ${userId}, ${fingerprint}, ${now}, ${now})
-      `;
+    if (!userExists) {
+      return NextResponse.json({ 
+        message: 'Sessão inválida ou usuário não encontrado. Por favor, saia (Logout) e entre novamente no sistema.' 
+      }, { status: 403 });
     }
 
-    return NextResponse.json({ id: accountId }, { status: 201 });
+    console.log('Attempting to create account for userId:', userId);
+
+    const account = await prisma.$transaction(async (tx) => {
+      const acc = await tx.account.create({
+        data: {
+          name: body.name,
+          type: body.type,
+          color: body.color || '#000000',
+          userId
+        }
+      });
+
+      if (body.initialBalance && Number(body.initialBalance) !== 0) {
+        const amount = Number(body.initialBalance);
+        const type = amount > 0 ? 'INCOME' : 'EXPENSE';
+        const categoryName = 'Ajuste de Saldo';
+
+        let category = await tx.category.findUnique({
+          where: { name_userId: { name: categoryName, userId } }
+        });
+
+        if (!category) {
+          category = await tx.category.create({
+            data: { name: categoryName, type: 'INCOME', userId }
+          });
+        }
+
+        const now = new Date();
+        const fingerprint = crypto.createHash('md5').update(`${now.toISOString()}|initial-balance|${acc.id}`).digest('hex');
+
+        await tx.transaction.create({
+          data: {
+            description: 'Saldo Inicial',
+            amount: Math.abs(amount),
+            date: now,
+            type,
+            categoryId: category.id,
+            accountId: acc.id,
+            userId,
+            externalId: fingerprint
+          }
+        });
+      }
+
+      return acc;
+    });
+
+    return NextResponse.json(account, { status: 201 });
   } catch (error: any) {
     console.error('Account Create Error:', error);
     return NextResponse.json({ 

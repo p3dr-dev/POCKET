@@ -10,11 +10,13 @@ export async function GET() {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json([]);
 
-    const categories = await prisma.$queryRaw`
-      SELECT * FROM "Category" WHERE "userId" = ${session.user.id} ORDER BY name ASC
-    `;
-    return NextResponse.json(Array.isArray(categories) ? categories : []);
+    const categories = await prisma.category.findMany({
+      where: { userId: session.user.id },
+      orderBy: { name: 'asc' }
+    });
+    return NextResponse.json(categories);
   } catch (error) {
+    console.error('Categories GET Error:', error);
     return NextResponse.json([]);
   }
 }
@@ -25,40 +27,22 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const id = crypto.randomUUID().substring(0, 8);
     const userId = session.user.id;
 
-    await prisma.$executeRaw`
-      INSERT INTO "Category" (id, name, type, "monthlyLimit", "userId")
-      VALUES (${id}, ${body.name}, ${body.type}, ${Number(body.monthlyLimit) || null}, ${userId})
-    `;
+    const category = await prisma.category.create({
+      data: {
+        name: body.name,
+        type: body.type,
+        monthlyLimit: body.monthlyLimit ? Number(body.monthlyLimit) : null,
+        userId
+      }
+    });
 
-    return NextResponse.json({ id }, { status: 201 });
+    return NextResponse.json(category, { status: 201 });
   } catch (error: any) {
-    if (error.message.includes('UNIQUE constraint failed')) {
+    if (error.code === 'P2002') {
       return NextResponse.json({ message: 'Esta categoria já existe.' }, { status: 400 });
     }
     return NextResponse.json({ message: 'Erro ao criar categoria' }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-
-    const { id, name, monthlyLimit } = await request.json();
-
-    if (!id) return NextResponse.json({ message: 'ID não fornecido' }, { status: 400 });
-
-    await prisma.$executeRaw`
-      UPDATE "Category" 
-      SET name = ${name}, "monthlyLimit" = ${monthlyLimit ? Number(monthlyLimit) : null}
-      WHERE id = ${id} AND "userId" = ${session.user.id}
-    `;
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ message: 'Erro ao atualizar categoria' }, { status: 500 });
   }
 }

@@ -12,25 +12,32 @@ export async function GET() {
     const userId = session.user.id;
 
     // Buscar dados reais do usuário logado
-    const users: any[] = await prisma.$queryRaw`SELECT name FROM "User" WHERE id = ${userId} LIMIT 1`;
-    const accounts: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE "userId" = ${userId}`;
-    
-    const transactions: any[] = await prisma.$queryRaw`
-      SELECT 
-        SUM(CASE WHEN type = 'INCOME' THEN amount ELSE -amount END) as balance
-      FROM "Transaction"
-      WHERE "userId" = ${userId}
-    `;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accounts: { select: { id: true } },
+        transactions: { select: { amount: true, type: true } }
+      }
+    });
 
-    const balance = Number(transactions[0]?.balance || 0);
+    if (!user) {
+      return NextResponse.json({ 
+        name: 'Sessão Expirada', 
+        status: 'Por favor, faça login novamente' 
+      });
+    }
+
+    const balance = user.transactions.reduce((sum, t) => 
+      t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
 
     return NextResponse.json({
-      name: users[0]?.name || 'Usuário',
+      name: user.name || 'Usuário',
       status: balance >= 0 ? 'Saldo Positivo' : 'Saldo Negativo',
-      accountCount: accounts.length,
+      accountCount: user.accounts.length,
       level: balance > 10000 ? 'Elite' : 'Premium'
     });
   } catch (error) {
+    console.error('User GET Error:', error);
     return NextResponse.json({ name: 'Usuário', status: 'Erro ao carregar' });
   }
 }
@@ -42,15 +49,10 @@ export async function DELETE() {
     
     const userId = session.user.id;
 
-    // Excluir todos os dados vinculados ao usuário em ordem de dependência (Raw SQL)
-    await prisma.$executeRaw`DELETE FROM "Transaction" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "RecurringTransaction" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "Investment" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "Debt" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "Goal" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "Account" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "Category" WHERE "userId" = ${userId}`;
-    await prisma.$executeRaw`DELETE FROM "User" WHERE id = ${userId}`;
+    // O Prisma deletará tudo automaticamente devido ao onDelete: Cascade no schema.prisma
+    await prisma.user.delete({
+      where: { id: userId }
+    });
 
     return NextResponse.json({ success: true, message: 'Conta e dados excluídos com sucesso' });
   } catch (error: any) {

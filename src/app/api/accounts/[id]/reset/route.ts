@@ -13,13 +13,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const userId = session.user.id;
     
     // Validar se a conta pertence ao usuário antes de resetar
-    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${id} AND "userId" = ${userId} LIMIT 1`;
-    if (!account || account.length === 0) {
+    const account = await prisma.account.findUnique({
+      where: { id, userId }
+    });
+
+    if (!account) {
       return NextResponse.json({ message: 'Conta não encontrada ou não autorizada' }, { status: 404 });
     }
 
-    // Apagar todas as transações vinculadas a esta conta e ao usuário
-    await prisma.$executeRaw`DELETE FROM "Transaction" WHERE "accountId" = ${id} AND "userId" = ${userId}`;
+    // Apagar todas as transações vinculadas a esta conta e ao usuário via Prisma Client
+    await prisma.transaction.deleteMany({
+      where: { accountId: id, userId }
+    });
 
     return NextResponse.json({ message: 'Conta zerada com sucesso' });
   } catch (error) {

@@ -13,11 +13,10 @@ export async function POST(request: Request) {
     const { text } = await request.json();
     const userId = session.user.id;
     
-    // Obter categorias e contas reais do usuário para a IA fazer o match
     const [categories, accounts] = await Promise.all([
-      prisma.$queryRaw`SELECT id, name FROM "Category" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT id, name FROM "Account" WHERE "userId" = ${userId}`
-    ]) as [{ id: string, name: string }[], { id: string, name: string }[]];
+      prisma.category.findMany({ where: { userId }, select: { id: true, name: true } }),
+      prisma.account.findMany({ where: { userId }, select: { id: true, name: true } })
+    ]);
 
     const categoryNames = categories.map(c => c.name).join(', ');
     const accountNames = accounts.map(a => a.name).join(', ');

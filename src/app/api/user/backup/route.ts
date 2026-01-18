@@ -13,13 +13,13 @@ export async function GET() {
     const userId = session.user.id;
 
     const [accounts, categories, transactions, investments, debts, goals, recurring] = await Promise.all([
-      prisma.$queryRaw`SELECT * FROM "Account" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Category" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Transaction" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Investment" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Debt" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "Goal" WHERE "userId" = ${userId}`,
-      prisma.$queryRaw`SELECT * FROM "RecurringTransaction" WHERE "userId" = ${userId}`
+      prisma.account.findMany({ where: { userId } }),
+      prisma.category.findMany({ where: { userId } }),
+      prisma.transaction.findMany({ where: { userId } }),
+      prisma.investment.findMany({ where: { userId } }),
+      prisma.debt.findMany({ where: { userId } }),
+      prisma.goal.findMany({ where: { userId } }),
+      prisma.recurringTransaction.findMany({ where: { userId } })
     ]);
 
     const data = {
@@ -31,11 +31,12 @@ export async function GET() {
       goals,
       recurring,
       exportDate: new Date().toISOString(),
-      version: '1.1'
+      version: '1.2'
     };
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Backup Error:', error);
     return NextResponse.json({ error: 'Erro ao exportar dados' }, { status: 500 });
   }
 }

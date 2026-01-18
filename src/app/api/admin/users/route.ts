@@ -9,25 +9,42 @@ export async function GET() {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    // Verifica se é admin
-    const usersRes: any[] = await prisma.$queryRaw`SELECT role FROM "User" WHERE id = ${session.user.id} LIMIT 1`;
-    const userRole = usersRes[0]?.role;
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
     
-    if (userRole !== 'ADMIN') {
+    if (user?.role !== 'ADMIN') {
        return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const users: any[] = await prisma.$queryRaw`
-      SELECT 
-        u.id, u.name, u.email, u.role, u."createdAt",
-        (SELECT COUNT(*) FROM "Account" a WHERE a."userId" = u.id) as "accountsCount",
-        (SELECT COUNT(*) FROM "Transaction" t WHERE t."userId" = u.id) as "transactionsCount"
-      FROM "User" u
-      ORDER BY u."createdAt" DESC
-    `;
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        _count: {
+          select: {
+            accounts: true,
+            transactions: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
-    return NextResponse.json(users);
+    // Formatar para manter compatibilidade com o frontend
+    const formatted = users.map(u => ({
+      ...u,
+      accountsCount: u._count.accounts,
+      transactionsCount: u._count.transactions
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
+    console.error('Admin Users Error:', error);
     return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 });
   }
 }

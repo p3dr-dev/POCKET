@@ -20,22 +20,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const userId = session.user.id;
-    const now = new Date().toISOString();
-    
-    // Usar data fornecida ou agora
-    const txDate = body.date ? (body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`) : now;
+    const txDate = body.date ? new Date(body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`) : new Date();
 
-    // Buscar investimento
-    const investments: any[] = await prisma.$queryRaw`
-      SELECT * FROM "Investment" WHERE id = ${id} AND "userId" = ${userId} LIMIT 1
-    `;
+    const [investment, account] = await Promise.all([
+      prisma.investment.findUnique({ where: { id, userId } }),
+      prisma.account.findUnique({ where: { id: targetAccountId, userId } })
+    ]);
 
-    if (!investments || investments.length === 0) return NextResponse.json({ message: 'Investimento não encontrado' }, { status: 404 });
-    const investment = investments[0];
+    if (!investment) return NextResponse.json({ message: 'Investimento não encontrado' }, { status: 404 });
+    if (!account) return NextResponse.json({ message: 'Conta de destino inválida' }, { status: 403 });
 
     const currentBalance = investment.currentValue || investment.amount;
     
-    if (redeemAmount > currentBalance + 0.01) { // Pequena margem para ponto flutuante
+    if (redeemAmount > currentBalance + 0.01) {
       return NextResponse.json({ message: 'Saldo insuficiente' }, { status: 400 });
     }
 
@@ -44,38 +41,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const newBalance = Math.max(0, currentBalance - redeemAmount);
     const newCost = Math.max(0, investment.amount - costReduction);
 
-    // Buscar categoria de resgate ou criar se não existir
-    const categories: any[] = await prisma.$queryRaw`
-      SELECT id FROM "Category" WHERE name = 'Resgate' AND type = 'INCOME' AND "userId" = ${userId} LIMIT 1
-    `;
+    await prisma.$transaction(async (tx) => {
+      let category = await tx.category.findUnique({
+        where: { name_userId: { name: 'Resgate', userId } }
+      });
 
-    let categoryId: string;
-    if (categories && categories.length > 0) {
-      categoryId = categories[0].id;
-    } else {
-      categoryId = crypto.randomUUID().substring(0, 8);
-      await prisma.$executeRaw`
-        INSERT INTO "Category" (id, name, type, "userId") 
-        VALUES (${categoryId}, 'Resgate', 'INCOME', ${userId})
-      `;
-    }
+      if (!category) {
+        category = await tx.category.create({
+          data: { name: 'Resgate', type: 'INCOME', userId }
+        });
+      }
 
-    const txId = crypto.randomUUID();
-    await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Resgate: ${investment.name}`}, ${redeemAmount}, ${txDate}, 'INCOME', ${categoryId}, ${targetAccountId}, ${userId}, ${now}, ${now})
-    `;
+      await tx.transaction.create({
+        data: {
+          description: `Resgate: ${investment.name}`,
+          amount: redeemAmount,
+          date: txDate,
+          type: 'INCOME',
+          categoryId: category.id,
+          accountId: targetAccountId,
+          userId
+        }
+      });
 
-    // 1. Atualizar ou Deletar Investimento
-    if (newBalance <= 0.01) {
-      await prisma.$executeRaw`DELETE FROM "Investment" WHERE id = ${id} AND "userId" = ${userId}`;
-    } else {
-      await prisma.$executeRaw`
-        UPDATE "Investment" 
-        SET "currentValue" = ${newBalance}, amount = ${newCost}, "updatedAt" = ${now}
-        WHERE id = ${id} AND "userId" = ${userId}
-      `;
-    }
+      if (newBalance <= 0.01) {
+        await tx.investment.delete({ where: { id, userId } });
+      } else {
+        await tx.investment.update({
+          where: { id, userId },
+          data: {
+            currentValue: newBalance,
+            amount: newCost
+          }
+        });
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

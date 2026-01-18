@@ -12,19 +12,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const body = await request.json();
     const userId = session.user.id;
-    const now = new Date().toISOString();
     
     const dateStr = body.deadline.includes('T') ? body.deadline : `${body.deadline}T12:00:00.000Z`;
-    const deadline = new Date(dateStr).toISOString();
+    const deadline = new Date(dateStr);
 
-    await prisma.$executeRaw`
-      UPDATE "Goal" 
-      SET name = ${body.name}, "targetAmount" = ${Math.abs(Number(body.targetAmount))}, "currentAmount" = ${Math.abs(Number(body.currentAmount))}, deadline = ${deadline}, color = ${body.color}, "updatedAt" = ${now}
-      WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    await prisma.goal.update({
+      where: { id, userId },
+      data: {
+        name: body.name,
+        targetAmount: Math.abs(Number(body.targetAmount)),
+        currentAmount: Math.abs(Number(body.currentAmount)),
+        deadline: deadline,
+        color: body.color
+      }
+    });
 
     return NextResponse.json({ id });
   } catch (error) {
+    console.error('Goal PUT Error:', error);
     return NextResponse.json({ message: 'Erro ao atualizar objetivo' }, { status: 500 });
   }
 }
@@ -36,9 +41,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { id } = await params;
     const userId = session.user.id;
-    await prisma.$executeRaw`DELETE FROM "Goal" WHERE id = ${id} AND "userId" = ${userId}`;
+    
+    await prisma.goal.delete({
+      where: { id, userId }
+    });
+
     return NextResponse.json({ message: 'Excluído' });
   } catch (error) {
+    console.error('Goal DELETE Error:', error);
     return NextResponse.json({ message: 'Erro ao excluir' }, { status: 500 });
   }
 }

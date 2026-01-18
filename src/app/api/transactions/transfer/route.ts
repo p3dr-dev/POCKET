@@ -29,62 +29,78 @@ export async function POST(request: Request) {
     const userId = session.user.id;
 
     // Validate Account Ownership
-    const accounts: any[] = await prisma.$queryRaw`
-      SELECT id FROM "Account" WHERE id IN (${fromAccountId}, ${toAccountId}) AND "userId" = ${userId}
-    `;
+    const accounts = await prisma.account.findMany({
+      where: {
+        id: { in: [fromAccountId, toAccountId] },
+        userId
+      }
+    });
     
-    if (!accounts || accounts.length < (fromAccountId === toAccountId ? 1 : 2)) {
+    if (accounts.length < (fromAccountId === toAccountId ? 1 : 2)) {
       return NextResponse.json({ message: 'Uma ou ambas as contas são inválidas ou não pertencem ao usuário' }, { status: 403 });
     }
 
     const transferId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
-    // Garantir formato ISO correto para o banco
-    const txDate = (body.date || now).includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
-    const isoDate = new Date(txDate).toISOString();
+    const txDateStr = (date || new Date().toISOString());
+    const isoDate = new Date(txDateStr.includes('T') ? txDateStr : `${txDateStr}T12:00:00.000Z`);
     const cleanDesc = description || "Transferência entre contas";
+    const absAmount = Math.abs(Number(amount));
 
     try {
       // 1. Garantir Categoria
-      let categoryId: string;
-      const categories: any[] = await prisma.$queryRaw`
-        SELECT id FROM "Category" WHERE name = 'Transferências' AND "userId" = ${userId} LIMIT 1
-      `;
+      let category = await prisma.category.findUnique({
+        where: { name_userId: { name: 'Transferências', userId } }
+      });
 
-      if (categories && categories.length > 0) {
-        categoryId = categories[0].id;
-      } else {
-        categoryId = crypto.randomUUID().substring(0, 8);
-        await prisma.$executeRaw`
-          INSERT INTO "Category" (id, name, type, "userId") 
-          VALUES (${categoryId}, 'Transferências', 'EXPENSE', ${userId})
-        `;
+      if (!category) {
+        category = await prisma.category.create({
+          data: { name: 'Transferências', type: 'EXPENSE', userId }
+        });
       }
 
       // 2. Verificar duplicidade (opcional)
       if (externalId) {
-        const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} AND "userId" = ${userId} LIMIT 1`;
-        if (existing && existing.length > 0) throw new Error('Transferência já registrada');
+        const existing = await prisma.transaction.findFirst({
+          where: { externalId, userId }
+        });
+        if (existing) throw new Error('Transferência já registrada');
       }
 
-      const outId = crypto.randomUUID();
-      const inId = crypto.randomUUID();
-
-      // 3. Criar Saída e Entrada dentro de uma TRANSAÇÃO para garantir atomicidade
-      const absAmount = Math.abs(Number(amount));
-
-      await prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`
-          INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
-          VALUES (${outId}, ${`Saída: ${cleanDesc}`}, ${absAmount}, ${isoDate}, 'EXPENSE', ${categoryId}, ${fromAccountId}, ${userId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? `${externalId}_out` : null}, ${now}, ${now})
-        `;
-
-        await tx.$executeRaw`
-          INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "transferId", payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt")
-          VALUES (${inId}, ${`Entrada: ${cleanDesc}`}, ${absAmount}, ${isoDate}, 'INCOME', ${categoryId}, ${toAccountId}, ${userId}, ${transferId}, ${payee || null}, ${payer || null}, ${bankRefId || null}, ${externalId ? `${externalId}_in` : null}, ${now}, ${now})
-        `;
-      });
+      // 3. Criar Saída e Entrada dentro de uma TRANSAÇÃO nativa
+      await prisma.$transaction([
+        prisma.transaction.create({
+          data: {
+            description: `Saída: ${cleanDesc}`,
+            amount: absAmount,
+            date: isoDate,
+            type: 'EXPENSE',
+            categoryId: category.id,
+            accountId: fromAccountId,
+            userId,
+            transferId,
+            payee: payee || null,
+            payer: payer || null,
+            bankRefId: bankRefId || null,
+            externalId: externalId ? `${externalId}_out` : null
+          }
+        }),
+        prisma.transaction.create({
+          data: {
+            description: `Entrada: ${cleanDesc}`,
+            amount: absAmount,
+            date: isoDate,
+            type: 'INCOME',
+            categoryId: category.id,
+            accountId: toAccountId,
+            userId,
+            transferId,
+            payee: payee || null,
+            payer: payer || null,
+            bankRefId: bankRefId || null,
+            externalId: externalId ? `${externalId}_in` : null
+          }
+        })
+      ]);
 
       return NextResponse.json({ transferId }, { status: 201 });
     } catch (dbError: any) {

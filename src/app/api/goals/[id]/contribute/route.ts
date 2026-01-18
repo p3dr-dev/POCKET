@@ -10,46 +10,46 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const { amount, accountId } = await request.json();
     const userId = session.user.id;
-    const now = new Date().toISOString();
+    const now = new Date();
 
     if (!amount || !accountId) return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
 
-    // 0. Validate Account Ownership
-    const accounts: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${accountId} AND "userId" = ${userId} LIMIT 1`;
-    if (!accounts || accounts.length === 0) return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
+    const [goal, account] = await Promise.all([
+      prisma.goal.findUnique({ where: { id, userId } }),
+      prisma.account.findUnique({ where: { id: accountId, userId } })
+    ]);
 
-    // 1. Buscar o objetivo e a categoria
-    const goals: any[] = await prisma.$queryRaw`SELECT * FROM "Goal" WHERE id = ${id} AND "userId" = ${userId} LIMIT 1`;
-    if (!goals || goals.length === 0) return NextResponse.json({ message: 'Objetivo não encontrado' }, { status: 404 });
-    const goal = goals[0];
+    if (!goal) return NextResponse.json({ message: 'Objetivo não encontrado' }, { status: 404 });
+    if (!account) return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
 
-    // Buscar categoria de objetivos ou criar se não existir
-    const categories: any[] = await prisma.$queryRaw`
-      SELECT id FROM "Category" WHERE name = 'Objetivos' AND type = 'EXPENSE' AND "userId" = ${userId} LIMIT 1
-    `;
+    await prisma.$transaction(async (tx) => {
+      let category = await tx.category.findUnique({
+        where: { name_userId: { name: 'Objetivos', userId } }
+      });
 
-    let categoryId: string;
-    if (categories && categories.length > 0) {
-      categoryId = categories[0].id;
-    } else {
-      categoryId = crypto.randomUUID().substring(0, 8);
-      await prisma.$executeRaw`
-        INSERT INTO "Category" (id, name, type, "userId") 
-        VALUES (${categoryId}, 'Objetivos', 'EXPENSE', ${userId})
-      `;
-    }
+      if (!category) {
+        category = await tx.category.create({
+          data: { name: 'Objetivos', type: 'EXPENSE', userId }
+        });
+      }
 
-    // 1. Atualizar o saldo da meta
-    await prisma.$executeRaw`
-      UPDATE "Goal" SET "currentAmount" = "currentAmount" + ${Number(amount)}, "updatedAt" = ${now} WHERE id = ${id} AND "userId" = ${userId}
-    `;
+      await tx.goal.update({
+        where: { id, userId },
+        data: { currentAmount: { increment: Number(amount) } }
+      });
 
-    // 2. Criar transação de saída da conta
-    const txId = crypto.randomUUID();
-    await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Meta: ${goal.name}`}, ${Number(amount)}, ${now}, 'EXPENSE', ${categoryId}, ${accountId}, ${userId}, ${now}, ${now})
-    `;
+      await tx.transaction.create({
+        data: {
+          description: `Meta: ${goal.name}`,
+          amount: Number(amount),
+          date: now,
+          type: 'EXPENSE',
+          categoryId: category.id,
+          accountId,
+          userId
+        }
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

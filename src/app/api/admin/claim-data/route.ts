@@ -12,26 +12,29 @@ export async function POST(req: Request) {
     const userId = session.user.id;
 
     // Verificar se é admin ou se é o único usuário
-    const usersRes: any[] = await prisma.$queryRaw`SELECT role FROM "User" WHERE id = ${userId} LIMIT 1`;
-    const userRole = usersRes[0]?.role;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
+    });
 
-    if (userRole !== 'ADMIN') {
-        const counts: any[] = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "User"`;
-        const count = Number(counts[0]?.count || 0);
+    if (user?.role !== 'ADMIN') {
+        const count = await prisma.user.count();
         if (count > 1) return NextResponse.json({ error: 'Apenas admin pode fazer isso' }, { status: 403 });
     }
 
-    // Vincular tudo ao usuário atual (Sem transação cliente)
-    await prisma.$executeRaw`UPDATE "Account" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "Category" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "Transaction" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "Debt" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "Goal" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "Investment" SET "userId" = ${userId}`;
-    await prisma.$executeRaw`UPDATE "RecurringTransaction" SET "userId" = ${userId}`;
+    // Vincular tudo ao usuário atual usando transação atômica do Prisma Client
+    await prisma.$transaction([
+      prisma.account.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.category.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.transaction.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.debt.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.goal.updateMany({ where: { userId: null }, data: { userId } }),
+      prisma.investment.updateMany({ where: { userId: null }, data: { userId } }),
+    ]);
 
     return NextResponse.json({ success: true, message: 'Todos os dados foram vinculados à sua conta.' });
   } catch (error: any) {
+    console.error('Claim Data Error:', error);
     return NextResponse.json({ error: 'Erro ao vincular dados: ' + error.message }, { status: 500 });
   }
 }

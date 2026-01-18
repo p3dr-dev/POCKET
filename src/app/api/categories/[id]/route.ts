@@ -4,6 +4,32 @@ import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
+    const { id } = await params;
+    const { name, monthlyLimit } = await request.json();
+    const userId = session.user.id;
+
+    const category = await prisma.category.update({
+      where: { id, userId },
+      data: {
+        name,
+        monthlyLimit: monthlyLimit ? Number(monthlyLimit) : null
+      }
+    });
+
+    return NextResponse.json(category);
+  } catch (error) {
+    return NextResponse.json({ message: 'Erro ao atualizar categoria' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -15,11 +41,10 @@ export async function DELETE(
     const { id } = await params;
     const userId = session.user.id;
 
-    // Verificar se tem transações
-    const counts: any[] = await prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM "Transaction" WHERE "categoryId" = ${id}
-    `;
-    const usageCount = Number(counts[0]?.count || 0);
+    // Verificar se tem transações via Prisma Client
+    const usageCount = await prisma.transaction.count({
+      where: { categoryId: id }
+    });
 
     if (usageCount > 0) {
       return NextResponse.json({ 
@@ -27,9 +52,9 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM "Category" WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    await prisma.category.delete({
+      where: { id, userId }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

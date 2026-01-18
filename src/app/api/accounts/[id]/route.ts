@@ -13,23 +13,31 @@ export async function GET(
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
+    const userId = session.user.id;
 
-    const account: any = await prisma.$queryRaw`
-      SELECT a.*, 
-        (SELECT COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE -t.amount END), 0) 
-         FROM "Transaction" t 
-         WHERE t."accountId" = a.id) as balance
-      FROM "Account" a
-      WHERE a.id = ${id} AND a."userId" = ${session.user.id}
-      LIMIT 1
-    `;
+    const account = await prisma.account.findUnique({
+      where: { id, userId },
+      include: {
+        transactions: {
+          select: { amount: true, type: true }
+        }
+      }
+    });
 
-    if (!account || account.length === 0) {
+    if (!account) {
       return NextResponse.json({ message: 'Conta não encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json(account[0]);
+    const balance = account.transactions.reduce((sum, t) => 
+      t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
+
+    return NextResponse.json({
+      ...account,
+      balance,
+      transactions: undefined // Remove para diminuir o payload
+    });
   } catch (error) {
+    console.error('Account GET Error:', error);
     return NextResponse.json({ message: 'Erro ao buscar conta' }, { status: 500 });
   }
 }
@@ -45,16 +53,19 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const userId = session.user.id;
-    const now = new Date().toISOString();
 
-    await prisma.$executeRaw`
-      UPDATE "Account" 
-      SET name = ${body.name}, type = ${body.type}, color = ${body.color || '#000000'}, "updatedAt" = ${now}
-      WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    await prisma.account.update({
+      where: { id, userId },
+      data: {
+        name: body.name,
+        type: body.type,
+        color: body.color || '#000000'
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Account PUT Error:', error);
     return NextResponse.json({ message: 'Erro ao atualizar conta' }, { status: 500 });
   }
 }
@@ -70,11 +81,10 @@ export async function DELETE(
     const { id } = await params;
     const userId = session.user.id;
 
-    // Verificar se existem transações vinculadas
-    const counts: any[] = await prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM "Transaction" WHERE "accountId" = ${id} AND "userId" = ${userId}
-    `;
-    const transactionCount = Number(counts[0]?.count || 0);
+    // Verificar se existem transações vinculadas via Prisma Client
+    const transactionCount = await prisma.transaction.count({
+      where: { accountId: id, userId }
+    });
 
     if (transactionCount > 0) {
       return NextResponse.json({ 
@@ -82,10 +92,13 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    await prisma.$executeRaw`DELETE FROM "Account" WHERE id = ${id} AND "userId" = ${userId}`;
+    await prisma.account.delete({
+      where: { id, userId }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Account DELETE Error:', error);
     return NextResponse.json({ message: 'Erro ao excluir conta' }, { status: 500 });
   }
 }
