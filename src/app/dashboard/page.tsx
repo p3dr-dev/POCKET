@@ -124,11 +124,11 @@ export default function Dashboard() {
     const monthDebts = Array.isArray(debts) ? debts.filter(d => {
       if (!d.dueDate) return false;
       const dDate = new Date(d.dueDate);
-      return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
+      return (dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear()) || (dDate < now && d.paidAmount < d.totalAmount);
     }) : [];
     
     const monthDebtsTotal = monthDebts.reduce((acc, d) => acc + d.totalAmount, 0);
-    const monthDebtsRemaining = monthDebts.reduce((acc, d) => acc + (d.totalAmount - d.paidAmount), 0);
+    const monthDebtsRemaining = monthDebts.reduce((acc, d) => acc + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
     const activeSubscriptions = Array.isArray(subscriptions) ? subscriptions.filter(s => s.active) : [];
     const monthlyFixedCost = activeSubscriptions.reduce((acc, s) => {
@@ -144,7 +144,8 @@ export default function Dashboard() {
     const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
     
     // FÓRMULA DE ALTA PRECISÃO:
-    // (O que tenho hoje - O que devo este mês - O que ainda vai debitar - O que preciso guardar p/ metas) / Dias que faltam
+    // (O que tenho hoje - O que falta pagar de dívidas no mês - Custo fixo mensal - Aporte metas) / Dias que faltam
+    // Nota: monthlyFixedCost aqui representa a reserva total do mês p/ assinaturas.
     const dailyGoal = (accBalance - monthDebtsRemaining - monthlyFixedCost - goalTarget) / daysRemaining;
 
     return {
@@ -166,28 +167,34 @@ export default function Dashboard() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    const debtsList = Array.isArray(debts) ? debts.map(d => ({ 
-      ...d, 
-      type: 'DEBT' 
-    })) : [];
-
-    const subsList = Array.isArray(subscriptions) ? subscriptions
-      .filter(s => {
-        if (!s.active || !s.nextRun) return false;
-        const d = new Date(s.nextRun);
-        // Mostrar se vence este mês ou se está atrasada
-        return (d.getMonth() === currentMonth && d.getFullYear() === currentYear) || d < now;
+    // 1. Filtrar dívidas que vencem este mês ou estão atrasadas
+    const debtsList = Array.isArray(debts) ? debts
+      .filter(d => {
+        if (!d.dueDate) return true; // Dívidas sem data sempre aparecem como pendentes
+        const dDate = new Date(d.dueDate);
+        return (dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear) || (dDate < now && d.paidAmount < d.totalAmount);
       })
+      .map(d => ({ 
+        ...d, 
+        type: 'DEBT' as const 
+      })) : [];
+
+    // 2. Filtrar assinaturas ativas (custo fixo)
+    const subsList = Array.isArray(subscriptions) ? subscriptions
+      .filter(s => s.active)
       .map(s => ({
         id: s.id,
         description: s.description,
         totalAmount: s.amount || 0,
-        paidAmount: 0, // Na visão de compromisso do mês, ela ainda pende execução
-        dueDate: s.nextRun,
-        type: 'SUBSCRIPTION'
+        paidAmount: 0, // Assinaturas são recorrentes, cada mês é um novo ciclo
+        dueDate: s.nextRun || new Date(currentYear, currentMonth, 28).toISOString(), // Fallback p/ fim do mês se sem data
+        type: 'SUBSCRIPTION' as const
       })) : [];
 
-    return [...debtsList, ...subsList];
+    return [...debtsList, ...subsList].sort((a, b) => {
+      if (!a.dueDate || !b.dueDate) return 0;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
   }, [debts, subscriptions]);
 
   const handleManualAI = async () => {

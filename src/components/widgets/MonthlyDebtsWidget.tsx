@@ -12,22 +12,7 @@ interface Commitment {
 }
 
 export default function MonthlyDebtsWidget({ debts }: { debts: Commitment[] }) {
-  const currentMonthCommitments = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return debts
-      .filter(d => {
-        if (!d.dueDate) return false;
-        const date = new Date(d.dueDate);
-        const isThisMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-        const isOverdueAndUnpaid = date < now && d.paidAmount < d.totalAmount;
-        
-        return isThisMonth || isOverdueAndUnpaid;
-      })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-  }, [debts]);
+  const commitments = debts;
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -36,12 +21,12 @@ export default function MonthlyDebtsWidget({ debts }: { debts: Commitment[] }) {
       <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-6">Compromissos do Mês</h3>
       
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-        {currentMonthCommitments.length === 0 ? (
+        {commitments.length === 0 ? (
            <p className="text-xs text-gray-400 font-medium text-center py-10 italic">Nenhum compromisso pendente este mês.</p>
         ) : (
-           currentMonthCommitments.map(item => {
+           commitments.map(item => {
              const progress = Math.min((item.paidAmount / (item.totalAmount || 1)) * 100, 100);
-             const isOverdue = new Date(item.dueDate) < new Date() && progress < 100;
+             const isOverdue = item.dueDate && new Date(item.dueDate) < new Date() && progress < 100;
 
              return (
                <div key={item.id} className="group p-1">
@@ -57,7 +42,7 @@ export default function MonthlyDebtsWidget({ debts }: { debts: Commitment[] }) {
                       <div>
                         <p className="font-bold text-xs text-gray-900 line-clamp-1 group-hover:text-black transition-colors">{item.description}</p>
                         <p className={`text-[9px] font-black uppercase tracking-tighter ${isOverdue ? 'text-rose-500' : 'text-gray-400'}`}>
-                          {isOverdue ? 'Atrasado desde ' : 'Vence dia '}{new Date(item.dueDate).getDate()}
+                          {item.dueDate ? (isOverdue ? 'Atrasado desde ' : 'Vence dia ') + new Date(item.dueDate).getDate() : 'Sem data definida'}
                         </p>
                       </div>
                    </div>
