@@ -131,22 +131,33 @@ export default function Dashboard() {
     const monthDebtsRemaining = monthDebts.reduce((acc, d) => acc + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
     const activeSubscriptions = Array.isArray(subscriptions) ? subscriptions.filter(s => s.active) : [];
-    const monthlyFixedCost = activeSubscriptions.reduce((acc, s) => {
-      let val = s.amount || 0;
-      if (s.frequency === 'WEEKLY') val *= 4;
-      if (s.frequency === 'YEARLY') val /= 12;
-      return acc + val;
-    }, 0);
+    const monthlyFixedCost = activeSubscriptions
+      .filter(s => s.type === 'EXPENSE')
+      .reduce((acc, s) => {
+        let val = s.amount || 0;
+        if (s.frequency === 'WEEKLY') val *= 4;
+        if (s.frequency === 'YEARLY') val /= 12;
+        return acc + val;
+      }, 0);
+
+    const pendingIncomes = activeSubscriptions
+      .filter(s => s.type === 'INCOME')
+      .reduce((acc, s) => {
+        let val = s.amount || 0;
+        if (s.frequency === 'WEEKLY') val *= 4;
+        if (s.frequency === 'YEARLY') val /= 12;
+        return acc + val;
+      }, 0);
 
     const goalTarget = healthData?.monthlyGoalTarget || 0;
 
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
     
-    // FÓRMULA DE ALTA PRECISÃO:
-    // (O que tenho hoje - O que falta pagar de dívidas no mês - Custo fixo mensal - Aporte metas) / Dias que faltam
-    // Nota: monthlyFixedCost aqui representa a reserva total do mês p/ assinaturas.
-    const dailyGoal = (accBalance - monthDebtsRemaining - monthlyFixedCost - goalTarget) / daysRemaining;
+    // FÓRMULA DE ALTA PRECISÃO RECALIBRADA:
+    // (Saldo Atual + Ganhos Esperados - Dívidas Pendentes - Custos Fixos - Reserva Metas) / Dias Restantes
+    const totalCommitments = monthDebtsRemaining + monthlyFixedCost;
+    const dailyGoal = (accBalance + pendingIncomes - totalCommitments - goalTarget) / daysRemaining;
 
     return {
       netWorth: accBalance + invTotal,
@@ -157,6 +168,7 @@ export default function Dashboard() {
       monthDebtsTotal,
       monthDebtsRemaining,
       monthlyFixedCost,
+      totalCommitments,
       dailyGoal,
       liquid: accBalance
     };
@@ -338,8 +350,8 @@ export default function Dashboard() {
                 isLoading={isLoading}
               />
               <SummaryCard 
-                title="Dívidas (Mês)" 
-                value={formatCurrency(stats.monthDebtsRemaining)} 
+                title="Compromissos (Mês)" 
+                value={formatCurrency(stats.totalCommitments)} 
                 type="expense" 
                 change={timeView === 'MONTH' ? stats.expenseChange : undefined}
                 isLoading={isLoading}
