@@ -48,6 +48,8 @@ export async function GET(req: Request) {
           });
 
           // Calcular próxima data
+          if (!sub.nextRun) throw new Error('Próxima execução não definida');
+          
           const nextDate = new Date(sub.nextRun);
           if (sub.frequency === 'MONTHLY') {
             const currentMonth = nextDate.getMonth();
