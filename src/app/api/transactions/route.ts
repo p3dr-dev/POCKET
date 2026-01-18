@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json([]);
+
     const transactions = await prisma.$queryRaw`
       SELECT 
         t.*, 
@@ -13,6 +17,7 @@ export async function GET() {
       FROM "Transaction" t
       LEFT JOIN "Category" c ON t."categoryId" = c.id
       LEFT JOIN "Account" a ON t."accountId" = a.id
+      WHERE t."userId" = ${session.user.id}
       ORDER BY t.date DESC
     `;
 
@@ -32,40 +37,41 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const body = await request.json();
     const id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const now = new Date().toISOString();
     
-    // Fix for timezone issue: Store dates at noon UTC to prevent day shifting on display
     const dateStr = body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
     const txDate = new Date(dateStr).toISOString();
 
     let categoryId = body.categoryId;
 
-    // Fallback logic for missing category (automated payments)
     if (!categoryId) {
       const type = body.type || 'EXPENSE';
       const categoryName = 'Outros';
       
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type}::"TransactionType" LIMIT 1`;
+      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type}::"TransactionType" AND "userId" = ${session.user.id} LIMIT 1`;
       
       if (existing && existing.length > 0) {
         categoryId = existing[0].id;
       } else {
         const catId = Math.random().toString(36).substring(2, 10);
-        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, ${categoryName}, ${type}::"TransactionType")`;
+        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${catId}, ${categoryName}, ${type}::"TransactionType", ${session.user.id})`;
         categoryId = catId;
       }
     }
 
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (
-        id, description, amount, date, type, "categoryId", "accountId", 
+        id, description, amount, date, type, "categoryId", "accountId", "userId",
         payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
       )
       VALUES (
         ${id}, ${body.description}, ${Number(body.amount)}, ${txDate}::timestamp, ${body.type}::"TransactionType", 
-        ${categoryId}, ${body.accountId}, ${body.payee || null}, ${body.payer || null}, 
+        ${categoryId}, ${body.accountId}, ${session.user.id}, ${body.payee || null}, ${body.payer || null}, 
         ${body.bankRefId || null}, ${body.externalId || null}, ${now}::timestamp, ${now}::timestamp
       )
     `;

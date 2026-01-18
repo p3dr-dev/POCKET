@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json([]);
+
     const { searchParams } = new URL(request.url);
     const includeTransactions = searchParams.get('includeTransactions') === 'true';
 
@@ -13,15 +17,15 @@ export async function GET(request: Request) {
         (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance,
         (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as "investmentTotal"
       FROM "Account" a
+      WHERE a."userId" = ${session.user.id}
     `;
 
     if (!Array.isArray(accounts)) return NextResponse.json([]);
 
     if (includeTransactions) {
       const results = await Promise.all(accounts.map(async (acc) => {
-        // Escapando "Transaction"
         const txs: any[] = await prisma.$queryRaw`
-          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id}
+          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id} AND "userId" = ${session.user.id}
         `;
         return { ...acc, transactions: txs || [] };
       }));
@@ -37,13 +41,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const body = await request.json();
     const id = Math.random().toString(36).substring(2, 15);
     const now = new Date().toISOString();
 
     await prisma.$executeRaw`
-      INSERT INTO "Account" (id, name, type, color, "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${body.type}::"AccountType", ${body.color}, ${now}::timestamp, ${now}::timestamp)
+      INSERT INTO "Account" (id, name, type, color, "userId", "createdAt", "updatedAt")
+      VALUES (${id}, ${body.name}, ${body.type}::"AccountType", ${body.color}, ${session.user.id}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     return NextResponse.json({ id, name: body.name }, { status: 201 });

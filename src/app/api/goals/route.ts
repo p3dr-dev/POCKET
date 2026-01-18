@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const goals = await prisma.$queryRaw`SELECT * FROM "Goal" ORDER BY deadline ASC`;
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json([]);
+
+    const goals = await prisma.$queryRaw`SELECT * FROM "Goal" WHERE "userId" = ${session.user.id} ORDER BY deadline ASC`;
     return NextResponse.json(Array.isArray(goals) ? goals : []);
   } catch (error) {
     return NextResponse.json([]);
@@ -14,6 +18,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const body = await request.json();
     const id = Math.random().toString(36).substring(2, 15);
     const now = new Date().toISOString();
@@ -22,8 +29,8 @@ export async function POST(request: Request) {
     const deadline = new Date(dateStr).toISOString();
 
     await prisma.$executeRaw`
-      INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}::timestamp, ${body.color || '#000000'}, ${now}::timestamp, ${now}::timestamp)
+      INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "userId", "createdAt", "updatedAt")
+      VALUES (${id}, ${body.name}, ${Number(body.targetAmount)}, ${Number(body.currentAmount || 0)}, ${deadline}::timestamp, ${body.color || '#000000'}, ${session.user.id}, ${now}::timestamp, ${now}::timestamp)
     `;
 
     return NextResponse.json({ id }, { status: 201 });
