@@ -74,7 +74,8 @@ export async function POST(request: Request) {
           type: 'EXPENSE',
           categoryId: category.id,
           accountId: body.accountId,
-          userId
+          userId,
+          investmentId: inv.id // Link aqui
         }
       });
 

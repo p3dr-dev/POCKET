@@ -138,9 +138,14 @@ export default function Dashboard() {
       return acc + val;
     }, 0);
 
+    const goalTarget = healthData?.monthlyGoalTarget || 0;
+
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
-    const dailyGoal = (monthDebtsRemaining + monthlyFixedCost) / daysRemaining;
+    
+    // FÓRMULA DE ALTA PRECISÃO:
+    // (O que tenho hoje - O que devo este mês - O que ainda vai debitar - O que preciso guardar p/ metas) / Dias que faltam
+    const dailyGoal = (accBalance - monthDebtsRemaining - monthlyFixedCost - goalTarget) / daysRemaining;
 
     return {
       netWorth: accBalance + invTotal,
@@ -154,7 +159,36 @@ export default function Dashboard() {
       dailyGoal,
       liquid: accBalance
     };
-  }, [accounts, investments, debts, transactions, subscriptions, timeView]);
+  }, [accounts, investments, debts, transactions, subscriptions, healthData, timeView]);
+
+  const combinedCommitments = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const debtsList = Array.isArray(debts) ? debts.map(d => ({ 
+      ...d, 
+      type: 'DEBT' 
+    })) : [];
+
+    const subsList = Array.isArray(subscriptions) ? subscriptions
+      .filter(s => {
+        if (!s.active || !s.nextRun) return false;
+        const d = new Date(s.nextRun);
+        // Mostrar se vence este mês ou se está atrasada
+        return (d.getMonth() === currentMonth && d.getFullYear() === currentYear) || d < now;
+      })
+      .map(s => ({
+        id: s.id,
+        description: s.description,
+        totalAmount: s.amount || 0,
+        paidAmount: 0, // Na visão de compromisso do mês, ela ainda pende execução
+        dueDate: s.nextRun,
+        type: 'SUBSCRIPTION'
+      })) : [];
+
+    return [...debtsList, ...subsList];
+  }, [debts, subscriptions]);
 
   const handleManualAI = async () => {
     setIsAiLoading(true);
@@ -303,11 +337,11 @@ export default function Dashboard() {
                 change={timeView === 'MONTH' ? stats.expenseChange : undefined}
                 isLoading={isLoading}
               />
-              <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between group overflow-hidden relative transition-all hover:scale-[1.02]">
+              <div className={`${stats.dailyGoal >= 0 ? 'bg-indigo-600' : 'bg-rose-600'} rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between group overflow-hidden relative transition-all hover:scale-[1.02]`}>
                 <div className="relative z-10">
-                  <span className="text-indigo-200 text-[10px] font-black uppercase tracking-widest leading-none">Meta Diária Restante</span>
+                  <span className="text-indigo-200 text-[10px] font-black uppercase tracking-widest leading-none">Limite Diário Seguro</span>
                   {isLoading ? (
-                    <div className="h-8 w-32 bg-indigo-500 rounded-lg animate-pulse mt-2" />
+                    <div className="h-8 w-32 bg-white/20 rounded-lg animate-pulse mt-2" />
                   ) : (
                     <h3 className="text-2xl font-black mt-2 tabular-nums">{formatCurrency(stats.dailyGoal)}</h3>
                   )}
@@ -322,6 +356,7 @@ export default function Dashboard() {
                 monthDebtsTotal={stats.monthDebtsTotal} 
                 monthDebtsRemaining={stats.monthDebtsRemaining} 
                 monthlyFixedCost={stats.monthlyFixedCost}
+                monthlyGoalTarget={healthData?.monthlyGoalTarget || 0}
                 dailyGoal={stats.dailyGoal} 
                 isLoading={isLoading}
               />
@@ -344,7 +379,7 @@ export default function Dashboard() {
                <div className="space-y-8">
                  <DailyExpensesWidget transactions={transactions} />
                  <div className="h-[450px]">
-                   <MonthlyDebtsWidget debts={debts} />
+                   <MonthlyDebtsWidget debts={combinedCommitments} />
                  </div>
                </div>
             </div>

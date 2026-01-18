@@ -39,13 +39,30 @@ export async function GET() {
     const investmentInitial = investments.reduce((acc, inv) => acc + inv.amount, 0);
     const investmentGain = investmentTotal - investmentInitial;
 
-    // 3. Consolidar Metas (Goals)
+    // 3. Consolidar Metas (Goals) e calcular aporte mensal necessário
     const goals = await prisma.goal.findMany({
       where: { userId }
     });
     const goalsTotalTarget = goals.reduce((acc, g) => acc + g.targetAmount, 0);
     const goalsTotalCurrent = goals.reduce((acc, g) => acc + g.currentAmount, 0);
     const goalsProgress = goalsTotalTarget > 0 ? (goalsTotalCurrent / goalsTotalTarget) * 100 : 0;
+
+    let monthlyGoalTarget = 0;
+    goals.forEach(g => {
+      const remaining = g.targetAmount - g.currentAmount;
+      if (remaining <= 0) return;
+
+      const now = new Date();
+      const deadline = new Date(g.deadline);
+      const diffTime = deadline.getTime() - now.getTime();
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30.44)); // Média de dias por mês
+
+      if (diffMonths > 0) {
+        monthlyGoalTarget += remaining / diffMonths;
+      } else {
+        monthlyGoalTarget += remaining; // Se o prazo já venceu, precisa de tudo agora
+      }
+    });
 
     // 4. Calcular Dívidas Ativas
     const debts = await prisma.debt.findMany({
@@ -72,10 +89,11 @@ export async function GET() {
       investmentTotal,
       investmentGain,
       goalsProgress,
+      monthlyGoalTarget,
       debtTotal,
       monthlyFixedCost,
       netWorth,
-      healthScore: calculateHealthScore(liquidTotal, debtTotal + monthlyFixedCost, investmentTotal)
+      healthScore: calculateHealthScore(liquidTotal, debtTotal + monthlyFixedCost + monthlyGoalTarget, investmentTotal)
     });
   } catch (error) {
     console.error('Financial Health API Error:', error);

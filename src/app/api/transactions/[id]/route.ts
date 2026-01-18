@@ -57,29 +57,51 @@ export async function DELETE(
     const { id } = await params;
     const userId = session.user.id;
     
-    // Buscar a transação primeiro para ver se é uma transferência
+    // 1. Buscar a transação para verificar vínculos (Transferência ou Investimento)
     const transaction = await prisma.transaction.findUnique({
       where: { id, userId },
-      select: { transferId: true }
+      select: { transferId: true, investmentId: true, amount: true, type: true }
     });
 
     if (!transaction) {
        return NextResponse.json({ message: 'Transação não encontrada' }, { status: 404 });
     }
 
-    if (transaction.transferId) {
-      // Se for transferência, deletar o par
-      await prisma.transaction.deleteMany({
-        where: { transferId: transaction.transferId, userId }
-      });
-    } else {
-      // Deletar apenas a transação individual
-      await prisma.transaction.delete({
-        where: { id, userId }
-      });
-    }
+    await prisma.$transaction(async (tx) => {
+      // 2. Se for Investimento, atualizar saldo do ativo
+      if (transaction.investmentId) {
+        const inv = await tx.investment.findUnique({
+          where: { id: transaction.investmentId, userId }
+        });
 
-    return NextResponse.json({ message: 'Transação excluída' });
+        if (inv) {
+          // Se eu deletar um APORTE (Expense), o saldo do ativo deve diminuir
+          // Se eu deletar um RESGATE (Income), o saldo do ativo deve aumentar (pois o dinheiro 'volta' para o ativo)
+          const adjustment = transaction.type === 'EXPENSE' ? -transaction.amount : transaction.amount;
+          
+          await tx.investment.update({
+            where: { id: inv.id },
+            data: {
+              amount: { increment: adjustment },
+              currentValue: { increment: adjustment }
+            }
+          });
+        }
+      }
+
+      // 3. Executar a deleção (respeitando lógica de transferência)
+      if (transaction.transferId) {
+        await tx.transaction.deleteMany({
+          where: { transferId: transaction.transferId, userId }
+        });
+      } else {
+        await tx.transaction.delete({
+          where: { id, userId }
+        });
+      }
+    });
+
+    return NextResponse.json({ message: 'Transação excluída e saldos sincronizados' });
   } catch (error: any) {
     if (error.code === 'P2025') {
        return NextResponse.json({ message: 'Transação não encontrada ou não autorizada' }, { status: 404 });

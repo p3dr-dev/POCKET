@@ -60,7 +60,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           type: 'INCOME',
           categoryId: category.id,
           accountId: targetAccountId,
-          userId
+          userId,
+          investmentId: id // Link aqui
         }
       });
 
