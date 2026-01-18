@@ -46,41 +46,53 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
     const userId = session.user.id;
 
-    await prisma.$executeRaw`
-      INSERT INTO "Account" (id, name, type, color, "userId", "createdAt", "updatedAt")
-      VALUES (${id}, ${body.name}, ${body.type}, ${body.color || '#000000'}, ${userId}, ${now}, ${now})
-    `;
+    const account = await prisma.account.create({
+      data: {
+        name: body.name,
+        type: body.type,
+        color: body.color || '#000000',
+        userId: userId,
+      }
+    });
 
     // Se houver saldo inicial, criar transação de ajuste
     if (body.initialBalance && Number(body.initialBalance) !== 0) {
-      const txId = crypto.randomUUID();
       const amount = Number(body.initialBalance);
       const type = amount > 0 ? 'INCOME' : 'EXPENSE';
       
-      // Buscar ou criar categoria "Ajuste"
-      let categoryId: string;
-      const categories: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Ajuste de Saldo' AND "userId" = ${userId} LIMIT 1`;
+      // Buscar ou criar categoria "Ajuste" usando Prisma Client
+      let category = await prisma.category.findFirst({
+        where: { name: 'Ajuste de Saldo', userId: userId }
+      });
       
-      if (categories && categories.length > 0) {
-        categoryId = categories[0].id;
-      } else {
-        categoryId = crypto.randomUUID().substring(0, 8);
-        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${categoryId}, 'Ajuste de Saldo', 'INCOME', ${userId})`;
+      if (!category) {
+        category = await prisma.category.create({
+          data: {
+            name: 'Ajuste de Saldo',
+            type: 'INCOME',
+            userId: userId
+          }
+        });
       }
 
-      await prisma.$executeRaw`
-        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
-        VALUES (${txId}, 'Saldo Inicial', ${Math.abs(amount)}, ${now}, ${type}, ${categoryId}, ${id}, ${userId}, ${now}, ${now})
-      `;
+      await prisma.transaction.create({
+        data: {
+          description: 'Saldo Inicial',
+          amount: Math.abs(amount),
+          date: new Date(),
+          type: type,
+          categoryId: category.id,
+          accountId: account.id,
+          userId: userId
+        }
+      });
     }
 
-    return NextResponse.json({ id, name: body.name }, { status: 201 });
-  } catch (error) {
-    console.error('Raw Insert Error:', error);
-    return NextResponse.json({ message: 'Erro ao criar conta no banco' }, { status: 500 });
+    return NextResponse.json(account, { status: 201 });
+  } catch (error: any) {
+    console.error('Account Create Error:', error);
+    return NextResponse.json({ message: 'Erro ao criar conta', details: error.message }, { status: 500 });
   }
 }

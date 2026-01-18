@@ -69,16 +69,16 @@ export async function POST(request: Request) {
     }
 
     // Validate Account Ownership
-    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${body.accountId} AND "userId" = ${userId} LIMIT 1`;
-    if (!account || account.length === 0) {
+    const account = await prisma.account.findFirst({
+      where: { id: body.accountId, userId: userId }
+    });
+    
+    if (!account) {
       return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
     }
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
     const dateStr = body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
-    const txDate = new Date(dateStr).toISOString();
+    const txDate = new Date(dateStr);
 
     let categoryId = body.categoryId;
 
@@ -86,38 +86,49 @@ export async function POST(request: Request) {
       const type = categoryId === 'YIELD_AUTO' ? 'INCOME' : (body.type || 'EXPENSE');
       const categoryName = categoryId === 'YIELD_AUTO' ? 'Rendimentos' : 'Outros';
       
-      const existing: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = ${categoryName} AND type = ${type} AND "userId" = ${userId} LIMIT 1`;
+      let category = await prisma.category.findFirst({
+        where: { name: categoryName, type: type, userId: userId }
+      });
       
-      if (existing && existing.length > 0) {
-        categoryId = existing[0].id;
-      } else {
-        const catId = crypto.randomUUID().substring(0, 8);
-        await prisma.$executeRaw`INSERT INTO "Category" (id, name, type, "userId") VALUES (${catId}, ${categoryName}, ${type}, ${userId})`;
-        categoryId = catId;
+      if (!category) {
+        category = await prisma.category.create({
+          data: {
+            name: categoryName,
+            type: type,
+            userId: userId
+          }
+        });
       }
+      categoryId = category.id;
     } else {
       // Validate Category Ownership
-      const category: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE id = ${categoryId} AND "userId" = ${userId} LIMIT 1`;
-      if (!category || category.length === 0) {
+      const category = await prisma.category.findFirst({
+        where: { id: categoryId, userId: userId }
+      });
+      if (!category) {
         return NextResponse.json({ message: 'Categoria inválida ou não encontrada' }, { status: 403 });
       }
     }
 
-    await prisma.$executeRaw`
-      INSERT INTO "Transaction" (
-        id, description, amount, date, type, "categoryId", "accountId", "userId",
-        payee, payer, "bankRefId", "externalId", "createdAt", "updatedAt"
-      )
-      VALUES (
-        ${id}, ${body.description}, ${Math.abs(Number(body.amount))}, ${txDate}, ${body.type}, 
-        ${categoryId}, ${body.accountId}, ${userId}, ${body.payee || null}, ${body.payer || null}, 
-        ${body.bankRefId || null}, ${body.externalId || null}, ${now}, ${now}
-      )
-    `;
+    const transaction = await prisma.transaction.create({
+      data: {
+        description: body.description,
+        amount: Math.abs(Number(body.amount)),
+        date: txDate,
+        type: body.type,
+        categoryId: categoryId,
+        accountId: body.accountId,
+        userId: userId,
+        payee: body.payee || null,
+        payer: body.payer || null,
+        bankRefId: body.bankRefId || null,
+        externalId: body.externalId || null
+      }
+    });
 
-    return NextResponse.json({ id }, { status: 201 });
+    return NextResponse.json(transaction, { status: 201 });
   } catch (error: any) {
-    if (error.message.includes('UNIQUE constraint failed: Transaction.externalId')) {
+    if (error.code === 'P2002') { // Prisma unique constraint error
       return NextResponse.json({ message: 'Este comprovante já foi importado anteriormente.' }, { status: 400 });
     }
     console.error('POST Transaction Error:', error);
