@@ -92,7 +92,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json(account, { status: 201 });
   } catch (error: any) {
-    console.error('Account Create Error:', error);
-    return NextResponse.json({ message: 'Erro ao criar conta', details: error.message }, { status: 500 });
+    console.error('Account Create Error Full:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack
+    });
+    return NextResponse.json({ 
+      message: 'Erro ao criar conta', 
+      details: error.message,
+      code: error.code 
+    }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import AccountModal from '@/components/modals/AccountModal';
 import ImportModal from '@/components/modals/ImportModal';
 import toast from 'react-hot-toast';
 import { downloadCSV } from '@/lib/utils';
+import { secureFetch } from '@/lib/api-client';
 
 interface Account {
   id: string;
@@ -29,8 +30,7 @@ export default function AccountsPage() {
   const fetchAccounts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/accounts?includeTransactions=true');
-      const data = await res.json();
+      const data = await secureFetch('/api/accounts?includeTransactions=true');
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       setAccounts([]);
@@ -44,25 +44,19 @@ export default function AccountsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir esta conta?')) return;
     try {
-      const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
+      await secureFetch(`/api/accounts/${id}`, { method: 'DELETE' });
       toast.success('Conta excluída');
       fetchAccounts();
-    } catch {
-      toast.error('Erro ao excluir');
-    }
+    } catch {}
   };
 
   const handleReset = async (id: string) => {
     if (!confirm('ATENÇÃO: Isso apagará TODAS as transações desta conta. Continuar?')) return;
     try {
-      const res = await fetch(`/api/accounts/${id}/reset`, { method: 'POST' });
-      if (!res.ok) throw new Error();
+      await secureFetch(`/api/accounts/${id}/reset`, { method: 'POST' });
       toast.success('Conta zerada');
       fetchAccounts();
-    } catch {
-      toast.error('Erro ao zerar conta');
-    }
+    } catch {}
   };
 
   const handleEdit = (account: Account) => {

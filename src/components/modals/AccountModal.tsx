@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { secureFetch } from '@/lib/api-client';
 
 interface Account {
   id: string;
@@ -50,9 +51,8 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
     const method = account ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      await secureFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           name, 
           type, 
@@ -61,13 +61,11 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
         }),
       });
 
-      if (!res.ok) throw new Error();
-
       toast.success(account ? 'Conta atualizada!' : 'Conta criada!');
       onSuccess();
       onClose();
-    } catch {
-      toast.error('Erro ao salvar conta');
+    } catch (error) {
+      // secureFetch already shows the toast error
     } finally {
       setIsLoading(false);
     }
