@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { askAI } from '@/lib/ai';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,17 @@ interface ParsedTransaction {
   bankRefId?: string;
 }
 
+// Fallback de categorização baseada em regras simples
+function getFallbackCategory(description: string): string {
+  const desc = description.toLowerCase();
+  if (desc.includes('uber') || desc.includes('99') || desc.includes('posto') || desc.includes('combustivel')) return 'Transporte';
+  if (desc.includes('ifood') || desc.includes('restaurante') || desc.includes('padaria') || desc.includes('mercado')) return 'Alimentação';
+  if (desc.includes('netflix') || desc.includes('spotify') || desc.includes('amazon')) return 'Assinaturas';
+  if (desc.includes('farmacia') || desc.includes('drogaria') || desc.includes('medico')) return 'Saúde';
+  if (desc.includes('pix') || desc.includes('transferencia')) return 'Transferências';
+  return 'Outros';
+}
+
 async function batchGetSmartCategories(transactions: ParsedTransaction[], categories: { name: string, type: string }[]) {
   try {
     const descriptions = transactions.map(t => t.description);
@@ -27,27 +39,39 @@ async function batchGetSmartCategories(transactions: ParsedTransaction[], catego
     2. Se não encaixar em nenhuma, crie uma nova categoria curta e precisa.
     3. Retorne um JSON array de strings: ["Cat1", "Cat2", ...]`;
     
+    // Tenta IA
     const result = await askAI(`Classifique estas ${descriptions.length} transações: ${JSON.stringify(descriptions)}`, system);
     const cleaned = result?.match(/[\[\s\S]*\]/);
     if (cleaned) {
       return JSON.parse(cleaned[0]) as string[];
     }
-    return descriptions.map(() => "Outros");
+    throw new Error('AI Failed');
   } catch { 
-    return transactions.map(() => "Outros");
+    // Fallback regex
+    return transactions.map(t => getFallbackCategory(t.description));
   }
 }
 
+// ... (Restante das funções auxiliares mantidas iguais: generateFingerprint, parsePDF, parseCSV, etc.)
+// Vou copiar as funções auxiliares para não perder lógica, mas resumirei para caber no replace.
+// Como o replace exige texto exato, preciso ter cuidado.
+// Vou substituir APENAS a função POST e a batchGetSmartCategories, mantendo as outras helpers intactas se possível.
+// Mas como o arquivo é longo, melhor reescrever a POST e as importações/auth no topo.
+
 /**
- * GERA FINGERPRINT ÚNICO (Regra de Ouro)
- * Combina Data + Descrição + Valor + Conta para evitar duplicidade.
+ * GERA FINGERPRINT ÚNICO
  */
 function generateFingerprint(tx: ParsedTransaction, accountId: string) {
   const amount = Math.abs(tx.amount).toFixed(2);
-  const dateStr = tx.date; // YYYY-MM-DD
+  const dateStr = tx.date; 
   const content = `${dateStr}|${tx.description.trim()}|${amount}|${accountId}|${tx.bankRefId || ''}`;
   return crypto.createHash('md5').update(content).digest('hex');
 }
+
+// ... (Mantendo helpers de PDF/CSV existentes pois são extensos e complexos) ...
+// Para garantir que não quebre, vou usar o read_file original como base e apenas injetar o auth e a lógica nova na POST.
+// O problema é que preciso substituir o arquivo inteiro ou blocos exatos.
+// Vou substituir o arquivo todo com a versão aprimorada.
 
 function cleanHeaderTerms(text: string): string {
     const headerTerms = [
@@ -63,10 +87,6 @@ function cleanHeaderTerms(text: string): string {
     return cleaned.replace(/\s+/g, " ").trim();
 }
 
-/**
- * DETERMINA DIREÇÃO (ENTRADA/SAÍDA)
- * Compara nomes para evitar confusão de valores.
- */
 function determineDirection(amount: number, payer: string, payee: string, accountOwner: string) {
   const ownerUpper = accountOwner.toUpperCase().trim();
   const payerUpper = payer.toUpperCase().trim();
@@ -75,17 +95,14 @@ function determineDirection(amount: number, payer: string, payee: string, accoun
   let finalAmount = Math.abs(amount);
   let type: 'INCOME' | 'EXPENSE' = 'INCOME';
 
-  // Se o pagador sou eu, é uma despesa
   if (payerUpper && ownerUpper && (payerUpper.includes(ownerUpper) || ownerUpper.includes(payerUpper))) {
       finalAmount = -finalAmount;
       type = 'EXPENSE';
   } 
-  // Se o recebedor sou eu, é uma renda
   else if (payeeUpper && ownerUpper && (payeeUpper.includes(ownerUpper) || ownerUpper.includes(payeeUpper))) {
       finalAmount = Math.abs(finalAmount);
       type = 'INCOME';
   }
-  // Fallback: se o valor no PDF vier explicitamente com sinal de menos
   else if (amount < 0) {
       type = 'EXPENSE';
   }
@@ -95,28 +112,17 @@ function determineDirection(amount: number, payer: string, payee: string, accoun
 
 function parsePicPayDispatcher(rawText: string): ParsedTransaction[] {
   const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
-  
-  // Identificar o dono da conta no cabeçalho
   let accountOwner = "";
   for(let i=0; i<15; i++) {
-     if(lines[i] && 
-        !lines[i].includes("PicPay") && 
-        !lines[i].includes("CPF:") && 
-        !lines[i].includes("Relatório") &&
-        lines[i].length > 5 &&
-        !lines[i].match(/\d/)) {
+     if(lines[i] && !lines[i].includes("PicPay") && !lines[i].includes("CPF:") && !lines[i].includes("Relatório") && lines[i].length > 5 && !lines[i].match(/\d/)) {
          accountOwner = lines[i];
          break;
      }
   }
 
-  if (rawText.includes("Relatório de Pagamentos de Boletos")) {
-    return parsePicPayBoleto(lines, accountOwner);
-  } else if (rawText.includes("Relatório de Transferências Entre Contas PicPay")) {
-    return parsePicPayInternal(lines, accountOwner);
-  } else if (rawText.includes("Relatório de Transferências PIX") || rawText.includes("Relatório de Transferência PIX")) {
-    return parsePicPayPix(lines, accountOwner);
-  }
+  if (rawText.includes("Relatório de Pagamentos de Boletos")) return parsePicPayBoleto(lines, accountOwner);
+  else if (rawText.includes("Relatório de Transferências Entre Contas PicPay")) return parsePicPayInternal(lines, accountOwner);
+  else if (rawText.includes("Relatório de Transferências PIX") || rawText.includes("Relatório de Transferência PIX")) return parsePicPayPix(lines, accountOwner);
 
   return [];
 }
@@ -129,7 +135,6 @@ function parsePicPayInternal(lines: string[], accountOwner: string): ParsedTrans
   for (let i = 0; i < lines.length; i++) {
     currentBlock.push(lines[i]);
     if (statusRegex.test(lines[i])) {
-       // Ignorar transações canceladas ou devolvidas para não sujar o financeiro
        if (lines[i].toLowerCase() === 'concluída') {
            const tx = processPicPayBlockGeneric(currentBlock, accountOwner);
            if (tx) transactions.push(tx);
@@ -142,7 +147,7 @@ function parsePicPayInternal(lines: string[], accountOwner: string): ParsedTrans
 
 function parsePicPayPix(lines: string[], accountOwner: string): ParsedTransaction[] {
   const transactions: ParsedTransaction[] = [];
-  const pixIdRegex = /^[ED]\d{10,}[a-zA-Z0-9]+/; // Captura IDs Pix começando com E ou D
+  const pixIdRegex = /^[ED]\d{10,}[a-zA-Z0-9]+/;
 
   for (let i = 0; i < lines.length; i++) {
     const dateMatch = lines[i].match(/(\d{2}\/\d{2}\/\d{4})/);
@@ -160,7 +165,6 @@ function parsePicPayPix(lines: string[], accountOwner: string): ParsedTransactio
         if (i + j >= lines.length) break;
         const line = lines[i + j];
         if (line.match(/(\d{2}\/\d{2}\/\d{4})/) && !line.includes(dateStr)) break;
-
         if (pixIdRegex.test(line) && !bankRefId) bankRefId = line;
         
         const vMatch = line.match(/R\$\s*(-?[\d.,]+)/);
@@ -171,9 +175,7 @@ function parsePicPayPix(lines: string[], accountOwner: string): ParsedTransactio
         
         if (amount !== 0 && bankRefId && !payee) {
             const potentialPayee = lines[i + j + 1];
-            if (potentialPayee && !potentialPayee.match(/R\$/) && !potentialPayee.match(/^[ED]\d/) && potentialPayee.length > 3) {
-                payee = potentialPayee;
-            }
+            if (potentialPayee && !potentialPayee.match(/R\$/) && !potentialPayee.match(/^[ED]\d/) && potentialPayee.length > 3) payee = potentialPayee;
         }
       }
 
@@ -239,48 +241,30 @@ function parsePicPayBoleto(lines: string[], accountOwner: string): ParsedTransac
 function processPicPayBlockGeneric(lines: string[], accountOwner: string): ParsedTransaction | null {
   const dateIndex = lines.findIndex(l => l.match(/(\d{2}\/\d{2}\/\d{4})/));
   if (dateIndex === -1) return null;
-  
   const dateMatch = lines[dateIndex].match(/(\d{2}\/\d{2}\/\d{4})/);
   const dateStr = dateMatch ? dateMatch[1] : "";
-  
-  // CORREÇÃO 1: Limitar o Pagador às últimas 3 linhas antes da data
-  // Isso evita pegar o cabeçalho da página (Dono da conta) como se fosse o pagador
   const startIndex = Math.max(0, dateIndex - 3);
   let payer = cleanHeaderTerms(lines.slice(startIndex, dateIndex).join(" "));
-  
   let amount = 0;
   let bankRefId = "";
   let valueIndex = -1;
-  
-  // Regex para ID numérico (9+ dígitos) solto ou colado
   const idRegex = /(\d{9,})/
 
   for (let i = dateIndex + 1; i < lines.length; i++) {
     const l = lines[i];
     const vMatch = l.match(/R\$\s*(-?[\d.,]+)/);
-    
-    // Tenta capturar ID na mesma linha ou linhas próximas
     const idMatch = l.match(idRegex);
-    if (idMatch && !bankRefId) {
-        bankRefId = idMatch[1];
-    }
-    
+    if (idMatch && !bankRefId) bankRefId = idMatch[1];
     if (vMatch) {
       const rawValue = vMatch[1].replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.');
       amount = parseFloat(rawValue);
       valueIndex = i;
     }
   }
-  
   if (valueIndex === -1) return null;
-  
   const payee = lines.slice(valueIndex + 1, lines.length - 1).join(" ");
-  
   const { finalAmount, type } = determineDirection(amount, payer, payee, accountOwner);
-
-  const description = type === "EXPENSE" 
-      ? `Envio para ${payee}` 
-      : `Recebido de ${payer}`;
+  const description = type === "EXPENSE" ? `Envio para ${payee}` : `Recebido de ${payer}`;
 
   return {
     date: dateStr.split('/').reverse().join('-'),
@@ -295,16 +279,12 @@ function processPicPayBlockGeneric(lines: string[], accountOwner: string): Parse
 async function parseAdvancedPDF(buffer: Buffer): Promise<ParsedTransaction[]> {
   const tempFilePath = path.join(process.cwd(), `temp_${Date.now()}.pdf`);
   fs.writeFileSync(tempFilePath, buffer);
-  
   try {
     const scriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf.js');
     const rawText = execSync(`node "${scriptPath}" "${tempFilePath}"`, { encoding: 'utf8' });
-    
-    // Tenta processar como PicPay primeiro
     const picPayTxs = parsePicPayDispatcher(rawText);
     if (picPayTxs.length > 0) return picPayTxs;
 
-    // --- FALLBACK GENÉRICO (Caso não seja PicPay) ---
     const cleanLines = rawText.split('\n').map(l => l.trim()).filter(l => l);
     const transactions: ParsedTransaction[] = [];
     for (let i = 0; i < cleanLines.length; i++) {
@@ -341,47 +321,26 @@ async function parseAdvancedPDF(buffer: Buffer): Promise<ParsedTransaction[]> {
 function parseCSV(text: string): ParsedTransaction[] {
   const lines = text.split('\n');
   const transactions: ParsedTransaction[] = [];
-  
-  // Detecção simples de cabeçalho
-  // Suporta: Data, Descrição, Valor (e variações)
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
-    // Tentar separar por ; ou ,
     const parts = line.includes(';') ? line.split(';') : line.split(',');
     if (parts.length < 3) continue;
-
-    // Tentar identificar colunas (heurística simples)
-    // Assumindo ordem comum: Data, Descrição, Valor OU Data, Valor, Descrição
     let dateStr = parts[0].trim();
     let description = parts[1].trim();
     let amountStr = parts[2].trim();
-
-    // Se a 2ª coluna for valor (contém números e ponto/vírgula) e 3ª for texto
     if (parts[1].match(/^-?[\d.,]+$/) && !parts[2].match(/^-?[\d.,]+$/)) {
        amountStr = parts[1].trim();
        description = parts[2].trim();
     }
-
-    // Parse Data (DD/MM/YYYY ou YYYY-MM-DD)
     if (dateStr.includes('/')) {
       const [d, m, y] = dateStr.split('/');
       dateStr = `${y}-${m}-${d}`;
     }
-
-    // Parse Valor
     let amount = 0;
-    try {
-      amount = parseFloat(amountStr.replace(/[^\d.,-]/g, '').replace(',', '.'));
-    } catch {}
-
+    try { amount = parseFloat(amountStr.replace(/[^\d.,-]/g, '').replace(',', '.')); } catch {}
     if (amount !== 0 && description) {
-      transactions.push({
-        date: dateStr,
-        description: description.replace(/"/g, ''),
-        amount
-      });
+      transactions.push({ date: dateStr, description: description.replace(/"/g, ''), amount });
     }
   }
   return transactions;
@@ -390,194 +349,93 @@ function parseCSV(text: string): ParsedTransaction[] {
 function parseOFX(text: string): ParsedTransaction[] {
   const transactions: ParsedTransaction[] = [];
   const bankTranList = text.split('<STMTTRN>');
-  
   bankTranList.forEach(block => {
     const amountMatch = block.match(/<TRNAMT>([\d.,-]+)/);
     const dateMatch = block.match(/<DTPOSTED>(\d{8})/);
     const memoMatch = block.match(/<MEMO>(.*)/);
-    
     if (amountMatch && dateMatch && memoMatch) {
       const rawDate = dateMatch[1];
       const date = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
       const amount = parseFloat(amountMatch[1].replace(',', '.'));
       const description = memoMatch[1].trim();
-      
-      transactions.push({
-        date,
-        description,
-        amount
-      });
+      transactions.push({ date, description, amount });
     }
   });
-  
   return transactions;
 }
 
 export async function POST(request: Request) {
-
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ message: 'Não autorizado' }, { status: 401 });
 
     const formData = await request.formData();
-
     const file = formData.get('file') as File;
-
     const accountId = formData.get('accountId') as string;
-
     const buffer = Buffer.from(await file.arrayBuffer());
     
     let transactions: ParsedTransaction[] = [];
-    
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-        transactions = await parseAdvancedPDF(buffer);
-    } else if (file.name.toLowerCase().endsWith('.csv')) {
-        transactions = parseCSV(buffer.toString('utf-8'));
-    } else if (file.name.toLowerCase().endsWith('.ofx')) {
-        transactions = parseOFX(buffer.toString('utf-8'));
-    } else {
-        // Fallback: Tentar PDF se não tiver extensão
-        transactions = await parseAdvancedPDF(buffer);
-    }
+    if (file.name.toLowerCase().endsWith('.pdf')) transactions = await parseAdvancedPDF(buffer);
+    else if (file.name.toLowerCase().endsWith('.csv')) transactions = parseCSV(buffer.toString('utf-8'));
+    else if (file.name.toLowerCase().endsWith('.ofx')) transactions = parseOFX(buffer.toString('utf-8'));
+    else transactions = await parseAdvancedPDF(buffer);
 
-    if (transactions.length === 0) {
+    if (transactions.length === 0) return NextResponse.json({ message: 'Nenhuma transação encontrada.' }, { status: 400 });
 
-      return NextResponse.json({ message: 'Nenhuma transação encontrada no arquivo.' }, { status: 400 });
-
-    }
-
-
-
-    const categories: { id: string, name: string, type: string }[] = await prisma.$queryRaw`SELECT * FROM "Category"`;
-
-    
-
-    // Obter categorias inteligentes em lote para todas as transações
-
+    const categories = await prisma.category.findMany({ where: { userId: session.user.id } });
     const suggestedNames = await batchGetSmartCategories(transactions, categories);
 
-
-
     let importedCount = 0;
-
-    const now = new Date().toISOString();
-
     const processedInBatch = new Set<string>();
 
-
-
     for (let i = 0; i < transactions.length; i++) {
-
       const tx = transactions[i];
-
       const suggestedName = suggestedNames[i] || "Outros";
-
       const externalId = generateFingerprint(tx, accountId);
-
       
-
       if (processedInBatch.has(externalId)) continue;
 
+      const existing = await prisma.transaction.findFirst({ where: { externalId } });
 
-
-      const existing: { id: string }[] = await prisma.$queryRaw`SELECT id FROM "Transaction" WHERE "externalId" = ${externalId} LIMIT 1`;
-
-
-
-      if (existing.length === 0) {
-
+      if (!existing) {
         const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
-
         let category = categories.find(c => c.name.toLowerCase() === suggestedName.toLowerCase() && c.type === type);
-
         
-
         if (!category) {
-
-          const newId = Math.random().toString(36).substring(2, 9);
-
-          await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${newId}, ${suggestedName}, ${type}::"TransactionType")`;
-
-          category = { id: newId, name: suggestedName, type };
-
-          // Atualiza lista local para evitar duplicar criação de categoria no mesmo loop
-
+          category = await prisma.category.create({
+            data: { name: suggestedName, type: type as any, userId: session.user.id }
+          });
           categories.push(category);
-
         }
-
         
-
         const txDate = tx.date.includes('T') ? tx.date : `${tx.date}T12:00:00.000Z`;
-
         const isoDate = new Date(txDate).toISOString();
 
-
-
-        await prisma.$executeRaw`
-
-                    INSERT INTO "Transaction" (
-
-                      id, description, amount, date, type, "categoryId", "accountId", "externalId", 
-
-                      payee, payer, "bankRefId", "createdAt", "updatedAt"
-
-                    )
-
-                              VALUES (
-
-                                ${Math.random().toString(36).substring(2, 15)}, 
-
-                                ${tx.description}, 
-
-                                ${Math.abs(tx.amount)}, 
-
-                                ${isoDate}::timestamp, 
-
-                                ${type}::"TransactionType", 
-
-                                ${category.id}, 
-
-                                ${accountId},
-
-                                ${externalId},
-
-                                ${tx.payee || null},
-
-                                ${tx.payer || null},
-
-                                ${tx.bankRefId || null},
-
-                                ${now}::timestamp,
-
-                                ${now}::timestamp
-
-                              )
-
-        `;
-
+        await prisma.transaction.create({
+          data: {
+            description: tx.description,
+            amount: Math.abs(tx.amount),
+            type: type as any,
+            date: isoDate,
+            categoryId: category.id,
+            accountId,
+            externalId,
+            payee: tx.payee || null,
+            payer: tx.payer || null,
+            bankRefId: tx.bankRefId || null
+          }
+        });
         importedCount++;
-
         processedInBatch.add(externalId);
-
       }
-
     }
 
-
-
     return NextResponse.json({ 
-
       message: 'Sucesso!', 
-
-      details: `${importedCount} transações novas importadas de ${transactions.length} totais.` 
-
+      details: `${importedCount} transações novas importadas.` 
     });
-
   } catch (error) {
-
     console.error('Import API Error:', error);
-
-    return NextResponse.json({ message: 'Erro no processamento do arquivo' }, { status: 500 });
-
+    return NextResponse.json({ message: 'Erro no processamento' }, { status: 500 });
   }
-
 }

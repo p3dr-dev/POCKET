@@ -4,9 +4,10 @@ interface FinancialPlannerProps {
   monthDebtsTotal: number;
   monthDebtsRemaining: number;
   dailyGoal: number;
+  isLoading?: boolean;
 }
 
-export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining, dailyGoal }: FinancialPlannerProps) {
+export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining, dailyGoal, isLoading = false }: FinancialPlannerProps) {
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   
   const paidAmount = monthDebtsTotal - monthDebtsRemaining;
@@ -21,18 +22,30 @@ export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining,
           <div className="flex justify-between items-end">
             <div>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Progresso de Quitação</p>
-              <p className="text-2xl font-black text-gray-900 mt-1">{formatCurrency(paidAmount)} <span className="text-gray-300 text-sm">/ {formatCurrency(monthDebtsTotal)}</span></p>
+              {isLoading ? (
+                <div className="h-8 w-40 bg-gray-100 rounded-lg animate-pulse mt-1" />
+              ) : (
+                <p className="text-2xl font-black text-gray-900 mt-1">{formatCurrency(paidAmount)} <span className="text-gray-300 text-sm">/ {formatCurrency(monthDebtsTotal)}</span></p>
+              )}
             </div>
             <div className="text-right">
-              <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{progress.toFixed(0)}%</span>
+              {isLoading ? (
+                <div className="h-6 w-12 bg-gray-100 rounded-full animate-pulse" />
+              ) : (
+                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{progress.toFixed(0)}%</span>
+              )}
             </div>
           </div>
 
           <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100 p-1">
-            <div 
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 shadow-sm"
-              style={{ width: `${progress}%` }}
-            />
+            {isLoading ? (
+               <div className="h-full w-1/3 bg-gray-200 rounded-full animate-pulse" />
+            ) : (
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 shadow-sm"
+                style={{ width: `${progress}%` }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -44,7 +57,11 @@ export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining,
           </div>
           <div>
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Meta Diária Restante</p>
-            <p className="text-lg font-black text-gray-900 mt-1">{formatCurrency(dailyGoal)}</p>
+            {isLoading ? (
+               <div className="h-7 w-24 bg-gray-100 rounded-lg animate-pulse mt-1" />
+            ) : (
+               <p className="text-lg font-black text-gray-900 mt-1">{formatCurrency(dailyGoal)}</p>
+            )}
           </div>
         </div>
         <p className="text-[10px] font-bold text-gray-300 max-w-[100px] text-right italic">Baseado nos dias restantes do mês atual.</p>

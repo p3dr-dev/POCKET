@@ -196,25 +196,69 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-y-auto px-4 md:px-8 xl:px-12 py-8 custom-scrollbar">
           <div className="max-w-screen-2xl mx-auto space-y-10 pb-20">
+            
+            {/* Onboarding Wizard (Only visible if no transactions & not loading) */}
+            {!isLoading && transactions.length === 0 && (
+              <div className="bg-black text-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl animate-in slide-in-from-top-4 relative overflow-hidden">
+                <div className="relative z-10 max-w-2xl">
+                   <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-4">Bem-vindo ao Pocket! 🚀</h2>
+                   <p className="text-gray-400 font-medium mb-8 leading-relaxed">
+                     Seu painel financeiro está pronto. Para começar a ver a mágica acontecer, precisamos de alguns dados iniciais.
+                     Siga os passos abaixo para ativar sua inteligência financeira.
+                   </p>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button onClick={() => window.location.href='/accounts'} className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-left transition-all border border-white/10 group">
+                         <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">1</div>
+                         <h3 className="font-bold text-sm">Criar Conta</h3>
+                         <p className="text-[10px] text-gray-400 mt-1">Cadastre seu banco ou carteira física.</p>
+                      </button>
+                      <button onClick={() => setIsModalOpen(true)} className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-left transition-all border border-white/10 group">
+                         <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">2</div>
+                         <h3 className="font-bold text-sm">Primeiro Registro</h3>
+                         <p className="text-[10px] text-gray-400 mt-1">Adicione uma receita ou despesa inicial.</p>
+                      </button>
+                   </div>
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
+                   <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <path d="M0 100 C 20 0 50 0 100 100 Z" fill="url(#grad-onboarding)" />
+                      <defs>
+                        <linearGradient id="grad-onboarding" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#6366f1" />
+                          <stop offset="100%" stopColor="#10b981" />
+                        </linearGradient>
+                      </defs>
+                   </svg>
+                </div>
+              </div>
+            )}
+
             {/* Main Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <SummaryCard title="Patrimônio Líquido" value={formatCurrency(stats.netWorth)} type="balance" />
+              <SummaryCard title="Patrimônio Líquido" value={formatCurrency(stats.netWorth)} type="balance" isLoading={isLoading} />
               <SummaryCard 
                 title={timeView === 'DAY' ? 'Receita Hoje' : timeView === 'WEEK' ? 'Receita Semana' : 'Receita Mês'} 
                 value={formatCurrency(stats.periodIncomes)} 
                 type="income" 
                 change={timeView === 'MONTH' ? stats.incomeChange : undefined}
+                isLoading={isLoading}
               />
               <SummaryCard 
                 title="Dívidas (Mês)" 
                 value={formatCurrency(stats.monthDebtsRemaining)} 
                 type="expense" 
                 change={timeView === 'MONTH' ? stats.expenseChange : undefined}
+                isLoading={isLoading}
               />
               <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between group overflow-hidden relative transition-all hover:scale-[1.02]">
                 <div className="relative z-10">
                   <span className="text-indigo-200 text-[10px] font-black uppercase tracking-widest leading-none">Meta Diária Restante</span>
-                  <h3 className="text-2xl font-black mt-2 tabular-nums">{formatCurrency(stats.dailyGoal)}</h3>
+                  {isLoading ? (
+                    <div className="h-8 w-32 bg-indigo-500 rounded-lg animate-pulse mt-2" />
+                  ) : (
+                    <h3 className="text-2xl font-black mt-2 tabular-nums">{formatCurrency(stats.dailyGoal)}</h3>
+                  )}
                 </div>
                 <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
               </div>
@@ -226,9 +270,10 @@ export default function Dashboard() {
                 monthDebtsTotal={stats.monthDebtsTotal} 
                 monthDebtsRemaining={stats.monthDebtsRemaining} 
                 dailyGoal={stats.dailyGoal} 
+                isLoading={isLoading}
               />
               <NetWorthChart transactions={transactions} currentBalance={stats.netWorth} />
-              <CategoryBreakdown transactions={transactions} />
+              <CategoryBreakdown transactions={transactions} isLoading={isLoading} />
             </div>
 
             {/* Widgets Section: AI, Budgets & Debts */}

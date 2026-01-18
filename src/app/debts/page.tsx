@@ -115,7 +115,11 @@ export default function DebtsPage() {
             <div className="bg-rose-600 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden group">
                <div className="relative z-10">
                   <span className="text-rose-200 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">Saldo Devedor Ativo</span>
-                  <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalRemaining)}</h2>
+                  {isLoading ? (
+                    <div className="h-14 w-48 bg-white/20 rounded-xl animate-pulse mt-4" />
+                  ) : (
+                    <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalRemaining)}</h2>
+                  )}
                </div>
                <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-black/10 rounded-full blur-3xl group-hover:bg-black/20 transition-colors duration-700" />
                <div className="absolute top-0 right-0 p-8 opacity-20">
@@ -125,10 +129,21 @@ export default function DebtsPage() {
 
             <div className="space-y-4">
                {isLoading ? (
-                 <div className="py-20 text-center flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin" />
-                    <span className="font-black text-gray-300 uppercase text-[10px] tracking-widest">Sincronizando...</span>
-                 </div>
+                 [...Array(5)].map((_, i) => (
+                   <div key={i} className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-[2rem] bg-white border border-gray-100 shadow-sm">
+                      <div className="flex-1 space-y-3">
+                         <div className="flex items-center gap-3">
+                           <div className="h-6 w-48 bg-gray-100 rounded-lg animate-pulse" />
+                           <div className="h-4 w-16 bg-gray-50 rounded-full animate-pulse" />
+                         </div>
+                         <div className="h-3 w-32 bg-gray-50 rounded animate-pulse" />
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                         <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
+                         <div className="h-8 w-24 bg-gray-100 rounded-lg animate-pulse" />
+                      </div>
+                   </div>
+                 ))
                ) : debts.length === 0 ? (
                  <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
                     <p className="text-sm font-bold text-gray-400">Nenhum compromisso pendente.</p>

@@ -50,6 +50,14 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
   const [isMagicLoading, setIsMagicLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (highlightedFields.length > 0) {
+      const timer = setTimeout(() => setHighlightedFields([]), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedFields]);
 
   useEffect(() => {
     if (isOpen) {
@@ -126,25 +134,35 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
   };
 
   const applyAiData = (data: any) => {
+    const fields: string[] = [];
     if (data.type === 'TRANSFER') {
       setActiveTab('TRANSFER');
       setTransferAmount(data.amount.toString());
       if (data.fromAccountId) setFromAccountId(data.fromAccountId);
       if (data.toAccountId) setToAccountId(data.toAccountId);
+      fields.push('transferAmount', 'fromAccountId', 'toAccountId');
     } else {
       setActiveTab('SINGLE');
-      if (data.description) setDescription(data.description);
-      if (data.amount) setAmount(data.amount.toString());
-      if (data.type) setType(data.type);
-      if (data.categoryId) setCategoryId(data.categoryId);
-      if (data.accountId) setAccountId(data.accountId);
+      if (data.description) { setDescription(data.description); fields.push('description'); }
+      if (data.amount) { setAmount(data.amount.toString()); fields.push('amount'); }
+      if (data.type) { setType(data.type); fields.push('type'); }
+      if (data.categoryId) { setCategoryId(data.categoryId); fields.push('categoryId'); }
+      if (data.accountId) { setAccountId(data.accountId); fields.push('accountId'); }
     }
     
-    if (data.date) setDate(data.date);
+    if (data.date) { setDate(data.date); fields.push('date'); }
     if (data.payee) setPayee(data.payee);
     if (data.payer) setPayer(data.payer);
     if (data.bankRefId) setBankRefId(data.bankRefId);
     if (data.externalId) setExternalId(data.externalId);
+
+    setHighlightedFields(fields);
+  };
+
+  const formatCurrency = (v: string) => {
+    const n = parseFloat(v);
+    if (isNaN(n)) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -294,31 +312,76 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>
-                    <input required value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" placeholder="O que você comprou/recebeu?" />
+                    <input 
+                      required 
+                      value={description} 
+                      onChange={e => setDescription(e.target.value)} 
+                      className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all ${
+                        highlightedFields.includes('description') ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-transparent focus:border-black'
+                      }`} 
+                      placeholder="O que você comprou/recebeu?" 
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1 relative">
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor</label>
-                      <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="R$ 0,00" />
+                      <input 
+                        required 
+                        type="number" 
+                        step="0.01" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-black outline-none transition-all ${
+                          highlightedFields.includes('amount') ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-transparent focus:border-black'
+                        }`} 
+                        placeholder="R$ 0,00" 
+                      />
+                      {amount && (
+                        <span className="absolute right-4 bottom-4 text-[10px] font-black text-gray-300 pointer-events-none">
+                          {formatCurrency(amount)}
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data</label>
-                      <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
+                      <input 
+                        required 
+                        type="date" 
+                        value={date} 
+                        onChange={e => setDate(e.target.value)} 
+                        className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all ${
+                          highlightedFields.includes('date') ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-transparent focus:border-black'
+                        }`} 
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Categoria</label>
-                      <select required value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+                      <select 
+                        required 
+                        value={categoryId} 
+                        onChange={e => setCategoryId(e.target.value)} 
+                        className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none ${
+                          highlightedFields.includes('categoryId') ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-transparent focus:border-black'
+                        }`}
+                      >
                         <option value="">Selecione...</option>
                         {categories.filter(c => c.type === type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Conta</label>
-                      <select required value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+                      <select 
+                        required 
+                        value={accountId} 
+                        onChange={e => setAccountId(e.target.value)} 
+                        className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none ${
+                          highlightedFields.includes('accountId') ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-transparent focus:border-black'
+                        }`}
+                      >
                         <option value="">Selecione...</option>
                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                       </select>

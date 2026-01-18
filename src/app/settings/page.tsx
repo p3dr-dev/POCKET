@@ -15,7 +15,30 @@ export default function SettingsPage() {
   }, []);
 
   const handleExportBackup = async () => {
-    // ... existing handleExportBackup ...
+    setIsExporting(true);
+    const toastId = toast.loading('Gerando arquivo de backup...');
+    try {
+      const res = await fetch('/api/user/backup');
+      if (!res.ok) throw new Error('Erro ao gerar backup');
+      
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pocket_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Backup baixado com sucesso!', { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +86,25 @@ export default function SettingsPage() {
       e.target.value = '';
     }
   };
+
+  const handleDeleteAccount = async () => {
+    const confirmation = prompt('Para confirmar a exclusão da sua conta e de TODOS os dados, digite "DELETAR" abaixo:');
+    if (confirmation !== 'DELETAR') return;
+
+    const toastId = toast.loading('Excluindo conta...');
+    try {
+      const res = await fetch('/api/user', { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Conta excluída. Até logo!', { id: toastId });
+        setTimeout(() => window.location.href = '/login', 2000);
+      } else {
+        throw new Error('Falha ao excluir');
+      }
+    } catch {
+      toast.error('Erro ao excluir conta', { id: toastId });
+    }
+  };
+
 
   return (
     <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
@@ -132,6 +174,23 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Zona de Perigo */}
+            <section className="bg-rose-50 rounded-[2.5rem] p-8 shadow-sm border border-rose-100">
+              <h2 className="text-lg font-black mb-6 text-rose-600">Zona de Perigo</h2>
+              <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-rose-100">
+                <div>
+                  <h4 className="font-black text-sm text-gray-900">Excluir Minha Conta</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Esta ação removerá todos os seus dados permanentemente</p>
+                </div>
+                <button 
+                  onClick={handleDeleteAccount}
+                  className="bg-rose-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200"
+                >
+                  Excluir Tudo
+                </button>
               </div>
             </section>
 

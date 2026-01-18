@@ -149,9 +149,23 @@ export default function AccountsPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 xl:p-10 custom-scrollbar">
           <div className="max-w-screen-xl mx-auto">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin"></div>
-                <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Carregando...</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 min-h-[220px] flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <div className="w-12 h-12 bg-gray-100 rounded-2xl animate-pulse" />
+                      <div className="flex gap-2">
+                        <div className="w-8 h-8 bg-gray-50 rounded-lg animate-pulse" />
+                        <div className="w-8 h-8 bg-gray-50 rounded-lg animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="mt-8 space-y-2">
+                      <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
+                      <div className="h-8 w-40 bg-gray-100 rounded-lg animate-pulse" />
+                      <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : accounts.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">

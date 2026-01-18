@@ -16,6 +16,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "POCKET - Gestão Financeira Inteligente",
   description: "Controle total do seu dinheiro, investimentos e gastos em um só lugar.",
+  manifest: "/manifest.json",
+  themeColor: "#000000",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Pocket",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg", // Idealmente seria um PNG, mas SVG funciona em alguns casos ou como fallback
+  },
 };
 
 import AuthProvider from '@/components/AuthProvider';
@@ -30,7 +41,28 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
           {children}
-          <Toaster />
+          <Toaster 
+            position="bottom-right"
+            toastOptions={{
+              className: '!bg-white !text-black !rounded-[1.5rem] !shadow-2xl !border !border-gray-100 !px-6 !py-4 !text-xs !font-black !uppercase !tracking-wider',
+              duration: 4000,
+              style: {
+                fontFamily: 'var(--font-geist-sans)',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: 'white',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#f43f5e',
+                  secondary: 'white',
+                },
+              },
+            }}
+          />
         </AuthProvider>
       </body>
     </html>

@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const investments = await prisma.$queryRaw`
-      SELECT i.*, a.name as "accountName" 
-      FROM "Investment" i 
-      LEFT JOIN "Account" a ON i."accountId" = a.id
-      ORDER BY i.amount DESC
-    `;
-    return NextResponse.json(Array.isArray(investments) ? investments : []);
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
+    const investments = await prisma.investment.findMany({
+      where: { userId: session.user.id },
+      include: { account: true },
+      orderBy: { amount: 'desc' }
+    });
+
+    const formatted = investments.map(i => ({
+      ...i,
+      accountName: i.account.name
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json([]);
   }
@@ -19,39 +28,59 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
     const body = await request.json();
-    const { name, type, amount, accountId } = body;
-    const invId = Math.random().toString(36).substring(2, 15);
-    const now = new Date().toISOString();
+    const { name, type, amount, currentValue, accountId, createTransaction } = body;
 
-    // 1. Criar o Investimento
-    await prisma.$executeRaw`
-      INSERT INTO "Investment" (id, name, type, amount, "currentValue", "accountId", "createdAt", "updatedAt")
-      VALUES (${invId}, ${name}, ${type}, ${Number(amount)}, ${Number(amount)}, ${accountId}, ${now}::timestamp, ${now}::timestamp)
-    `;
-
-    // 2. Criar Transação Automática de Saída (para refletir a compra do ativo no saldo)
-    const txId = Math.random().toString(36).substring(2, 15);
-    const txDate = `${new Date().toISOString().split('T')[0]}T12:00:00.000Z`;
-    
-    // Buscar categoria 'Investimentos' ou fallback
-    const categories: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE name = 'Investimentos' AND type = 'EXPENSE' LIMIT 1`;
-    let categoryId = categories[0]?.id;
-
-    if (!categoryId) {
-      const catId = Math.random().toString(36).substring(2, 10);
-      await prisma.$executeRaw`INSERT INTO "Category" (id, name, type) VALUES (${catId}, 'Investimentos', 'EXPENSE'::"TransactionType")`;
-      categoryId = catId;
+    if (!name || !amount || !accountId) {
+      return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
     }
 
-    await prisma.$executeRaw`
-      INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Aporte: ${name}`}, ${Number(amount)}, ${txDate}::timestamp, 'EXPENSE'::"TransactionType", ${categoryId}, ${accountId}, ${now}::timestamp, ${now}::timestamp)
-    `;
+    // Usar transação para atomicidade
+    await prisma.$transaction(async (tx) => {
+      // 1. Criar Investimento
+      await tx.investment.create({
+        data: {
+          name,
+          type,
+          amount: Number(amount),
+          currentValue: Number(currentValue || amount),
+          accountId,
+          userId: session.user.id
+        }
+      });
 
-    return NextResponse.json({ id: invId }, { status: 201 });
+      // 2. Criar Transação de Saída (se solicitado)
+      if (createTransaction) {
+        let category = await tx.category.findFirst({
+          where: { name: 'Investimentos', type: 'EXPENSE', userId: session.user.id }
+        });
+
+        if (!category) {
+          category = await tx.category.create({
+            data: { name: 'Investimentos', type: 'EXPENSE', userId: session.user.id }
+          });
+        }
+
+        await tx.transaction.create({
+          data: {
+            description: `Aporte: ${name}`,
+            amount: Number(amount),
+            type: 'EXPENSE',
+            date: new Date(),
+            categoryId: category.id,
+            accountId: accountId
+          }
+        });
+      }
+    });
+
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     console.error('Investment POST Error:', error);
-    return NextResponse.json({ message: 'Erro ao salvar investimento e transação' }, { status: 500 });
+    return NextResponse.json({ message: 'Erro ao salvar' }, { status: 500 });
   }
 }
+

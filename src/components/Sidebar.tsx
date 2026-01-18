@@ -51,14 +51,23 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean, setIsO
                   key={item.name}
                   href={item.href} 
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold transition-all text-sm group ${
+                  className={`relative flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-300 text-xs uppercase tracking-wider group overflow-hidden ${
                     isActive 
-                      ? 'bg-gray-900 text-white shadow-lg shadow-gray-200' 
+                      ? 'bg-black text-white shadow-xl shadow-black/10' 
                       : 'text-gray-400 hover:text-black hover:bg-gray-50'
                   }`}
                 >
-                  {item.icon}
-                  {item.name}
+                  {/* Active Indicator Line */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-white rounded-r-full" />
+                  )}
+                  
+                  <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    {item.icon}
+                  </span>
+                  <span className={`transition-transform duration-300 ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>
+                    {item.name}
+                  </span>
                 </Link>
               );
             })}
@@ -71,7 +80,13 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean, setIsO
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-gray-900 truncate">{user?.name || 'Usuário'}</p>
-                  <button onClick={() => signOut({ redirectTo: '/login' })} className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-rose-600 transition-colors text-left">
+                  <button 
+                    onClick={async () => {
+                      await signOut({ redirect: false });
+                      window.location.href = '/login';
+                    }} 
+                    className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-rose-600 transition-colors text-left"
+                  >
                     Sair
                   </button>
                 </div>

@@ -7,6 +7,9 @@ export async function POST(request: Request) {
   try {
     const stats = await request.json();
     
+    console.log('--- AI Insights Request ---');
+    console.log('Stats received:', stats);
+
     const prompt = `Você é o estrategista financeiro do sistema POCKET. 
     Analise os dados atuais do usuário e forneça um insight curto (máx 3 frases), motivador e altamente estratégico.
     
@@ -24,9 +27,19 @@ export async function POST(request: Request) {
     3. Seja direto, use um tom premium e profissional.
     4. Responda APENAS o texto do insight, sem saudações ou explicações.`;
 
+    console.log('Sending prompt to AI...');
     const content = await askAI(prompt, "Você é um consultor de Wealth Management de elite.");
+    console.log('AI Response:', content);
+    
+    if (!content) {
+      throw new Error('Sem resposta da IA');
+    }
+
     return NextResponse.json({ content });
   } catch (error) {
-    return NextResponse.json({ content: "Continue monitorando seus lançamentos para uma análise precisa." });
+    console.error('AI Insights Error:', error);
+    return NextResponse.json({ 
+      content: "O consultor virtual está indisponível no momento. Verifique se o serviço de IA local está ativo." 
+    });
   }
 }

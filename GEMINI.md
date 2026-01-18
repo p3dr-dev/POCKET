@@ -12,15 +12,16 @@ Este documento serve como o mapa mestre e guia de diretrizes para o desenvolvime
 
 - **Framework Principal:** **Next.js 15** (App Router).
 - **Estilização:** **Tailwind CSS v4** (Design System Premium e Fluído).
-- **Banco de Dados:** **SQLite** com **Prisma ORM**.
+- **Banco de Dados:** **PostgreSQL** (via **Supabase**) com **Prisma ORM**.
 - **Inteligência Artificial:** **Ollama** (Modelo: `gemini-3-flash-preview`).
 - **Processamento de PDF:** **pdfjs-dist** (via script isolado para evitar erros de worker).
 
 ## 3. Arquitetura e Restrições Críticas
 
-### 3.1. Banco de Dados (Regra de Ouro)
-- **Fallback para Raw SQL:** Devido a restrições de permissão de arquivo no Windows (`EPERM`), o cliente Prisma pode ficar fora de sincronia. **Sempre utilize `prisma.$queryRaw` e `prisma.$executeRaw`** para operações de escrita e leitura nas rotas de API.
-- **Nomes Reservados:** A tabela `"Transaction"` deve sempre ser referenciada entre aspas duplas em consultas SQL puras por ser uma palavra reservada no SQLite.
+### 3.1. Banco de Dados
+- **Provider:** O projeto utiliza PostgreSQL hospedado no Supabase.
+- **Consultas:** O uso do cliente padrão do Prisma (`prisma.model.findMany`, etc.) é permitido e encorajado. Utilize `prisma.$queryRaw` apenas para consultas complexas de performance crítica ou agregações específicas que o ORM não suporte nativamente.
+- **Nomes Reservados:** A tabela `"Transaction"` deve sempre ser referenciada com cuidado em Raw SQL, pois é uma palavra reservada.
 
 ### 3.2. Interface (UI/UX)
 - **Layout "Single-View":** O dashboard deve ocupar `100vh` fixos, utilizando scroll interno para listas. O objetivo é evitar o scroll global da página e a sensação de "zoom".

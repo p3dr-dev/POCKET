@@ -146,30 +146,42 @@ export default function CategoriesPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-4">
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-rose-500">Gestão de Gastos</h3>
-                  <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'EXPENSE').length} itens</span>
+                  {!isLoading && <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'EXPENSE').length} itens</span>}
                 </div>
                 <div className="space-y-3">
-                  {categories.filter(c => c.type === 'EXPENSE').map(cat => (
-                    <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-rose-200 transition-all">
-                      <div className="flex-1">
-                        <span className="font-black text-gray-900 block">{cat.name}</span>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
-                          Limite: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Sem limite definido'}
-                        </p>
+                  {isLoading ? (
+                    [...Array(3)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-[2rem] p-6 border border-gray-100 flex items-center justify-between">
+                         <div className="space-y-2">
+                           <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                           <div className="h-3 w-20 bg-gray-50 rounded animate-pulse" />
+                         </div>
+                         <div className="w-8 h-8 bg-gray-50 rounded-lg animate-pulse" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => {
-                            const val = prompt('Novo limite mensal (ou deixe em branco para remover):', cat.monthlyLimit?.toString() || '');
-                            if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
-                          }}
-                          className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </button>
+                    ))
+                  ) : (
+                    categories.filter(c => c.type === 'EXPENSE').map(cat => (
+                      <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-rose-200 transition-all">
+                        <div className="flex-1">
+                          <span className="font-black text-gray-900 block">{cat.name}</span>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
+                            Limite: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Sem limite definido'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => {
+                              const val = prompt('Novo limite mensal (ou deixe em branco para remover):', cat.monthlyLimit?.toString() || '');
+                              if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                            }}
+                            className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -177,28 +189,40 @@ export default function CategoriesPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-4">
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Gestão de Receitas</h3>
-                  <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'INCOME').length} itens</span>
+                  {!isLoading && <span className="text-[10px] font-bold text-gray-300 uppercase">{categories.filter(c => c.type === 'INCOME').length} itens</span>}
                 </div>
                 <div className="space-y-3">
-                  {categories.filter(c => c.type === 'INCOME').map(cat => (
-                    <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
-                      <div className="flex-1">
-                        <span className="font-black text-gray-900 block">{cat.name}</span>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Recorrência Estimada: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Não estimada'}</p>
+                  {isLoading ? (
+                    [...Array(3)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-[2rem] p-6 border border-gray-100 flex items-center justify-between">
+                         <div className="space-y-2">
+                           <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                           <div className="h-3 w-20 bg-gray-50 rounded animate-pulse" />
+                         </div>
+                         <div className="w-8 h-8 bg-gray-50 rounded-lg animate-pulse" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => {
-                            const val = prompt('Estimativa mensal:', cat.monthlyLimit?.toString() || '');
-                            if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
-                          }}
-                          className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </button>
+                    ))
+                  ) : (
+                    categories.filter(c => c.type === 'INCOME').map(cat => (
+                      <div key={cat.id} className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
+                        <div className="flex-1">
+                          <span className="font-black text-gray-900 block">{cat.name}</span>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Recorrência Estimada: {cat.monthlyLimit ? formatCurrency(cat.monthlyLimit) : 'Não estimada'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => {
+                              const val = prompt('Estimativa mensal:', cat.monthlyLimit?.toString() || '');
+                              if (val !== null) handleUpdateLimit(cat.id, cat.name, val === '' ? null : parseFloat(val));
+                            }}
+                            className="p-2 hover:bg-gray-50 rounded-lg text-gray-300 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>

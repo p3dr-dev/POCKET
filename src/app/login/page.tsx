@@ -39,36 +39,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4">
-      <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-gray-100">
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-black rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-black/20">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 selection:bg-black selection:text-white">
+      <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-gray-100 animate-in fade-in zoom-in-95 duration-500">
+        <div className="text-center mb-12">
+          <div className="w-20 h-20 bg-black rounded-[2rem] mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 group">
+            <span className="text-white text-3xl font-black group-hover:scale-110 transition-transform">P</span>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-gray-900">Bem-vindo(a)</h1>
-          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-2">Entre para gerenciar suas finanças</p>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-gray-900">Bem-vindo(a)</h1>
+          <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-3">Acesse seu ecossistema financeiro</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email</label>
+          <div className="space-y-1">
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Corporativo ou Pessoal</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-xl p-4 text-sm font-bold outline-none transition-all"
+              className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-gray-300"
               placeholder="seu@email.com"
               required
             />
           </div>
           
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Senha</label>
+          <div className="space-y-1">
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-xl p-4 text-sm font-bold outline-none transition-all"
+              className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-gray-300"
               placeholder="••••••••"
               required
             />
@@ -77,17 +77,24 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-black text-white p-4 rounded-xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-black/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-black text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-black/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
           >
-            {isLoading ? 'Entrando...' : 'Entrar'}
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <span>Acessar Carteira</span>
+                <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+              </>
+            )}
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-xs font-bold text-gray-400">
-            Não tem uma conta?{' '}
-            <Link href="/register" className="text-black hover:underline transition-all">
-              Cadastre-se
+        <div className="mt-10 text-center space-y-4">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Ainda não tem acesso?{' '}
+            <Link href="/register" className="text-black hover:underline decoration-2 underline-offset-4">
+              Criar Conta
             </Link>
           </p>
         </div>

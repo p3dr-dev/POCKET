@@ -3,11 +3,9 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
-interface Debt {
+interface Goal {
   id: string;
-  description: string;
-  totalAmount: number;
-  paidAmount: number;
+  name: string;
 }
 
 interface Account {
@@ -15,14 +13,14 @@ interface Account {
   name: string;
 }
 
-interface DebtPaymentModalProps {
+interface GoalContributionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  debt: Debt | null;
+  goal: Goal | null;
 }
 
-export default function DebtPaymentModal({ isOpen, onClose, onSuccess, debt }: DebtPaymentModalProps) {
+export default function GoalContributionModal({ isOpen, onClose, onSuccess, goal }: GoalContributionModalProps) {
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -34,39 +32,33 @@ export default function DebtPaymentModal({ isOpen, onClose, onSuccess, debt }: D
         setAccounts(data);
         if (data.length > 0) setAccountId(data[0].id);
       });
-      if (debt) {
-        setAmount(debt.totalAmount.toString());
-      }
+      setAmount('');
     }
-  }, [isOpen, debt]);
+  }, [isOpen]);
 
-  if (!isOpen || !debt) return null;
+  if (!isOpen || !goal) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const finalAmount = parseFloat(amount);
-      
-      const res = await fetch(`/api/debts/${debt.id}/pay`, {
+      const res = await fetch(`/api/goals/${goal.id}/contribute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: finalAmount,
-          accountId,
-          date: new Date().toISOString() // Data do pagamento é hoje
+          amount: parseFloat(amount),
+          accountId
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Erro ao processar');
+      if (!res.ok) throw new Error();
 
-      toast.success('Pagamento registrado com sucesso!');
+      toast.success('Contribuição realizada!');
       onSuccess();
       onClose();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao processar pagamento');
+    } catch {
+      toast.error('Erro ao contribuir');
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +68,12 @@ export default function DebtPaymentModal({ isOpen, onClose, onSuccess, debt }: D
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95">
-        <h2 className="text-2xl font-black text-gray-900 mb-2">Pagar Conta</h2>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">{debt.description}</p>
+        <h2 className="text-2xl font-black text-gray-900 mb-2">Novo Aporte</h2>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Para: {goal.name}</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Valor Efetivo (Pode variar)</label>
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Valor do Aporte</label>
             <input 
               required 
               type="number" 
@@ -89,11 +81,12 @@ export default function DebtPaymentModal({ isOpen, onClose, onSuccess, debt }: D
               value={amount} 
               onChange={e => setAmount(e.target.value)}
               className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-lg font-black outline-none transition-all"
+              placeholder="R$ 0,00"
             />
           </div>
 
           <div>
-            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Pagar usando a conta</label>
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1.5 block">Origem dos fundos</label>
             <select 
               required 
               value={accountId} 
@@ -106,9 +99,9 @@ export default function DebtPaymentModal({ isOpen, onClose, onSuccess, debt }: D
 
           <button 
             disabled={isLoading}
-            className="w-full py-5 bg-emerald-600 text-white rounded-2xl text-sm font-black hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 active:scale-95 disabled:opacity-50"
+            className="w-full py-5 bg-black text-white rounded-2xl text-sm font-black hover:bg-gray-800 transition-all shadow-xl shadow-black/10 active:scale-95 disabled:opacity-50"
           >
-            {isLoading ? 'Processando...' : 'Confirmar Pagamento'}
+            {isLoading ? 'Processando...' : 'Confirmar Aporte'}
           </button>
         </form>
       </div>

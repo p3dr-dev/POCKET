@@ -9,7 +9,7 @@ interface Transaction {
   date: string;
 }
 
-export default function CategoryBreakdown({ transactions }: { transactions: Transaction[] }) {
+export default function CategoryBreakdown({ transactions, isLoading = false }: { transactions: Transaction[], isLoading?: boolean }) {
   const breakdown = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -45,7 +45,19 @@ export default function CategoryBreakdown({ transactions }: { transactions: Tran
       <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-6">Maiores Gastos (Mês)</h3>
       
       <div className="flex-1 space-y-5">
-        {breakdown.length === 0 ? (
+        {isLoading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
+                <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+              </div>
+              <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
+                <div className="h-full bg-gray-200 rounded-full animate-pulse w-1/2" />
+              </div>
+            </div>
+          ))
+        ) : breakdown.length === 0 ? (
           <p className="text-xs text-gray-400 font-medium">Sem despesas registradas.</p>
         ) : (
           breakdown.map((item) => (

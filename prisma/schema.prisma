@@ -15,6 +15,7 @@ model User {
   name      String
   email     String   @unique
   password  String
+  role      String   @default("USER") // "ADMIN" ou "USER"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -23,6 +24,7 @@ model User {
   debts       Debt[]
   goals       Goal[]
   investments Investment[]
+  recurringTransactions RecurringTransaction[]
 }
 
 model Category {
@@ -33,6 +35,7 @@ model Category {
   userId       String?
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  recurringTransactions RecurringTransaction[]
   
   @@unique([name, userId]) // Garante que nomes sejam únicos apenas por usuário
 }
@@ -46,6 +49,7 @@ model Account {
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   investments  Investment[]
+  recurringTransactions RecurringTransaction[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -111,6 +115,26 @@ model Goal {
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model RecurringTransaction {
+  id           String          @id @default(cuid())
+  description  String
+  amount       Float
+  type         TransactionType
+  frequency    String          // MONTHLY, YEARLY, WEEKLY
+  nextRun      DateTime
+  active       Boolean         @default(true)
+  
+  categoryId   String
+  category     Category        @relation(fields: [categoryId], references: [id])
+  accountId    String
+  account      Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 }
 
 enum TransactionType {

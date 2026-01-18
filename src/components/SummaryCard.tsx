@@ -5,9 +5,10 @@ interface SummaryCardProps {
   value: string;
   type: 'income' | 'expense' | 'balance';
   change?: number; // Percentual de variação
+  isLoading?: boolean;
 }
 
-export default function SummaryCard({ title, value, type, change }: SummaryCardProps) {
+export default function SummaryCard({ title, value, type, change, isLoading = false }: SummaryCardProps) {
   const styles = {
     income: {
       text: 'text-emerald-600',
@@ -41,7 +42,9 @@ export default function SummaryCard({ title, value, type, change }: SummaryCardP
         </div>
         <div className="text-right flex flex-col items-end">
           <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{title}</span>
-          {change !== undefined && (
+          {isLoading ? (
+             <div className="h-4 w-12 bg-gray-100 rounded-full animate-pulse mt-1" />
+          ) : change !== undefined && (
             <div className={`flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
               isGoodTrend ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'
             }`}>
@@ -52,10 +55,19 @@ export default function SummaryCard({ title, value, type, change }: SummaryCardP
       </div>
       
       <div className="flex flex-col relative z-10">
-        <span className={`text-2xl xl:text-3xl font-black tracking-tighter tabular-nums leading-none ${styles[type].text}`}>
-          {value}
-        </span>
-        <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mt-2">Visão do Período</p>
+        {isLoading ? (
+           <div className="space-y-2">
+             <div className="h-8 w-32 bg-gray-100 rounded-lg animate-pulse" />
+             <div className="h-3 w-20 bg-gray-50 rounded-md animate-pulse" />
+           </div>
+        ) : (
+          <>
+            <span className={`text-2xl xl:text-3xl font-black tracking-tighter tabular-nums leading-none ${styles[type].text}`}>
+              {value}
+            </span>
+            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mt-2">Visão do Período</p>
+          </>
+        )}
       </div>
 
       {/* Decorativo de fundo sutil */}

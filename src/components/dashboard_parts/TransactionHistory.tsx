@@ -26,6 +26,24 @@ interface TransactionHistoryProps {
   onEdit: (t: Transaction) => void;
 }
 
+const formatDateGroup = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // Normaliza a data da transação para meia-noite para comparação
+  const txDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (txDate.getTime() === today.getTime()) return 'Hoje';
+  if (txDate.getTime() === yesterday.getTime()) return 'Ontem';
+  
+  // Capitaliza a primeira letra
+  const s = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 export default function TransactionHistory({
   transactions,
   isLoading,
@@ -45,6 +63,18 @@ export default function TransactionHistory({
       return mSearch;
     });
   }, [transactions, searchQuery]);
+
+  const groupedTransactions = useMemo(() => {
+    const groups: { [key: string]: Transaction[] } = {};
+    
+    filteredTransactions.slice(0, 50).forEach(t => {
+      const group = formatDateGroup(t.date);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(t);
+    });
+
+    return groups;
+  }, [filteredTransactions]);
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -71,62 +101,82 @@ export default function TransactionHistory({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
         {isLoading ? (
-          <div className="py-20 text-center animate-pulse text-gray-300 font-black uppercase text-xs tracking-widest">Sincronizando...</div>
-        ) : filteredTransactions.length === 0 ? (
+          <div className="space-y-4">
+             {[...Array(5)].map((_, i) => (
+               <div key={i} className="flex items-center gap-4 p-4 rounded-[2rem] border border-gray-50">
+                 <div className="w-12 h-12 rounded-2xl bg-gray-100 animate-pulse" />
+                 <div className="flex-1 space-y-2">
+                   <div className="h-4 w-1/3 bg-gray-100 rounded animate-pulse" />
+                   <div className="flex gap-2">
+                     <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
+                     <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
+                   </div>
+                 </div>
+                 <div className="h-5 w-20 bg-gray-100 rounded animate-pulse" />
+               </div>
+             ))}
+          </div>
+        ) : Object.keys(groupedTransactions).length === 0 ? (
           <div className="py-20 text-center opacity-30 font-bold text-gray-400">Nenhuma movimentação encontrada.</div>
         ) : (
-          filteredTransactions.slice(0, 50).map((t) => (
-            <div 
-              key={t.id} 
-              onClick={() => onToggleSelect(t.id)} 
-              className={`group relative grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 rounded-[2rem] transition-all border cursor-pointer select-none
-                ${selectedIds.includes(t.id) 
-                  ? 'bg-black text-white border-black shadow-lg transform scale-[1.01]' 
-                  : 'bg-white hover:bg-gray-50 border-transparent hover:border-gray-100 active:scale-[0.99]'
-                }`}
-            >
-              {/* Icon / Category Indicator */}
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
-                ${selectedIds.includes(t.id) ? 'bg-white/10 text-white' : t.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                {t.type === 'INCOME' ? 
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg> : 
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
-                }
-              </div>
+          Object.keys(groupedTransactions).map((dateGroup) => (
+            <div key={dateGroup} className="space-y-3">
+              <h3 className="px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-2">
+                {dateGroup}
+              </h3>
+              <div className="space-y-2">
+                {groupedTransactions[dateGroup].map((t) => (
+                  <div 
+                    key={t.id} 
+                    onClick={() => onToggleSelect(t.id)} 
+                    className={`group relative grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 rounded-[2rem] transition-all border cursor-pointer select-none
+                      ${selectedIds.includes(t.id) 
+                        ? 'bg-black text-white border-black shadow-lg transform scale-[1.01]' 
+                        : 'bg-white hover:bg-gray-50 border-transparent hover:border-gray-100 active:scale-[0.99]'
+                      }`}
+                  >
+                    {/* Icon / Category Indicator */}
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
+                      ${selectedIds.includes(t.id) ? 'bg-white/10 text-white' : t.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      {t.type === 'INCOME' ? 
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg> : 
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
+                      }
+                    </div>
 
-              {/* Content */}
-              <div className="min-w-0 flex flex-col justify-center">
-                <p className={`font-black text-sm md:text-base truncate leading-tight ${selectedIds.includes(t.id) ? 'text-white' : 'text-gray-900'}`}>
-                  {t.description}
-                </p>
-                <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
-                    {t.category.name}
-                  </span>
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-indigo-50 text-indigo-500'}`}>
-                    {t.account.name}
-                  </span>
-                  <span className={`text-[9px] font-bold ${selectedIds.includes(t.id) ? 'text-white/60' : 'text-gray-300'}`}>
-                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                  </span>
-                </div>
-              </div>
+                    {/* Content */}
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <p className={`font-black text-sm md:text-base truncate leading-tight ${selectedIds.includes(t.id) ? 'text-white' : 'text-gray-900'}`}>
+                        {t.description}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+                          {t.category.name}
+                        </span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${selectedIds.includes(t.id) ? 'bg-white/20' : 'bg-indigo-50 text-indigo-500'}`}>
+                          {t.account.name}
+                        </span>
+                      </div>
+                    </div>
 
-              {/* Amount */}
-              <div className={`text-right font-black tabular-nums text-sm md:text-lg whitespace-nowrap ${selectedIds.includes(t.id) ? 'text-white' : t.type === 'INCOME' ? 'text-emerald-600' : 'text-gray-900'}`}>
-                {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.amount)}
+                    {/* Amount */}
+                    <div className={`text-right font-black tabular-nums text-sm md:text-lg whitespace-nowrap ${selectedIds.includes(t.id) ? 'text-white' : t.type === 'INCOME' ? 'text-emerald-600' : 'text-gray-900'}`}>
+                      {t.type === 'INCOME' ? '+' : '-'} {formatCurrency(t.amount)}
+                    </div>
+                    
+                    {/* Edit Button */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onEdit(t); }}
+                      className={`absolute right-2 top-2 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden md:block
+                        ${selectedIds.includes(t.id) ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-200 text-gray-400'}`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                  </div>
+                ))}
               </div>
-              
-              {/* Edit Button (Visible on Hover/Desktop) */}
-              <button 
-                onClick={(e) => { e.stopPropagation(); onEdit(t); }}
-                className={`absolute right-2 top-2 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden md:block
-                  ${selectedIds.includes(t.id) ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-200 text-gray-400'}`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              </button>
             </div>
           ))
         )}

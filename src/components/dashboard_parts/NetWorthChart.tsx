@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface Transaction {
   amount: number;
@@ -10,81 +10,184 @@ interface Transaction {
 
 export default function NetWorthChart({ 
   transactions, 
-  currentBalance 
+  currentBalance,
+  isLoading = false
 }: { 
   transactions: Transaction[], 
-  currentBalance: number 
+  currentBalance: number,
+  isLoading?: boolean
 }) {
-  const evolutionData = useMemo(() => {
-    // Pegar os últimos 6 meses
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const data = useMemo(() => {
+    // 1. Gerar últimos 6 meses
     const months = [];
     const now = new Date();
-    
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push({
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }),
-        month: d.getMonth(),
-        year: d.getFullYear(),
+        label: d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', ''),
+        fullDate: d,
         value: 0
       });
     }
 
-    // Reconstruir o patrimônio de trás para frente
-    let runningBalance = currentBalance;
-    const reversedMonths = [...months].reverse();
+    // 2. Calcular valores retroativos
+    let balance = currentBalance;
+    // Trabalhamos de trás pra frente (do mês atual para o passado)
+    // O valor do mês ATUAL (ultimo do array) é o balance atual.
+    // O valor do mês anterior é: balance atual - receitas do mês atual + despesas do mês atual.
+    
+    // Precisamos iterar do mais recente para o mais antigo para calcular o saldo INICIAL de cada mês (ou final do anterior)
+    // Mas para visualização, geralmente queremos o saldo no FINAL do mês.
+    
+    const reversedData = [...months].reverse().map((m) => {
+      const endOfMonthBalance = balance;
 
-    return reversedMonths.map((m, idx) => {
-      // Valor no final deste mês é o runningBalance atual
-      const monthValue = runningBalance;
-
-      // Para o próximo mês (indo para o passado), subtraímos o que entrou e somamos o que saiu NESTE mês
-      const monthTxs = transactions.filter(t => {
+      // Movimentações deste mês específico
+      const txsInMonth = transactions.filter(t => {
         const d = new Date(t.date);
-        return d.getMonth() === m.month && d.getFullYear() === m.year;
+        return d.getMonth() === m.fullDate.getMonth() && d.getFullYear() === m.fullDate.getFullYear();
       });
 
-      const monthIncomes = monthTxs.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
-      const monthExpenses = monthTxs.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
+      const incomes = txsInMonth.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
+      const expenses = txsInMonth.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
 
-      runningBalance = runningBalance - monthIncomes + monthExpenses;
+      // Preparar o balance para a próxima iteração (que será o mês anterior)
+      balance = balance - incomes + expenses;
 
       return {
         ...m,
-        value: monthValue
+        value: endOfMonthBalance
       };
-    }).reverse();
+    });
+
+    return reversedData.reverse();
   }, [transactions, currentBalance]);
 
-  const maxValue = Math.max(...evolutionData.map(d => d.value), 1);
+  // SVG Helpers
+  const width = 100;
+  const height = 50;
+  const padding = 5;
+  const graphWidth = width;
+  const graphHeight = height - 10;
+
+  const minVal = Math.min(...data.map(d => d.value)) * 0.95; // 5% de margem inferior
+  const maxVal = Math.max(...data.map(d => d.value)) * 1.05; // 5% de margem superior
+  const range = maxVal - minVal || 1;
+
+  const getX = (index: number) => (index / (data.length - 1)) * graphWidth;
+  const getY = (value: number) => graphHeight - ((value - minVal) / range) * graphHeight + padding;
+
+  // Criar path da linha suave (Cubic Bezier)
+  const linePath = useMemo(() => {
+    if (data.length === 0) return '';
+    
+    let path = `M ${getX(0)} ${getY(data[0].value)}`;
+    
+    for (let i = 0; i < data.length - 1; i++) {
+      const x_mid = (getX(i) + getX(i + 1)) / 2;
+      const y_mid = (getY(data[i].value) + getY(data[i + 1].value)) / 2;
+      const cp_x1 = (x_mid + getX(i)) / 2;
+      const cp_x2 = (x_mid + getX(i + 1)) / 2;
+      
+      path += ` Q ${cp_x1} ${getY(data[i].value)}, ${x_mid} ${y_mid}`;
+      path += ` T ${getX(i + 1)} ${getY(data[i + 1].value)}`;
+    }
+    return path;
+  }, [data, minVal, range]);
+
+  // Área preenchida (fecha o path embaixo)
+  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col h-full">
-      <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-8">Evolução Patrimonial (6 Meses)</h3>
-      
-      <div className="flex-1 flex items-end gap-4 pb-2">
-        {evolutionData.map((d, idx) => (
-          <div key={idx} className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end">
-            {/* Tooltip */}
-            <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-black px-3 py-1.5 rounded-xl whitespace-nowrap z-10 pointer-events-none shadow-xl">
-              {formatCurrency(d.value)}
-            </div>
+    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden relative group">
+      <div className="flex justify-between items-center mb-6 relative z-10">
+        <h3 className="font-black text-sm uppercase tracking-widest text-gray-900">Evolução Patrimonial</h3>
+        <span className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-lg">6 Meses</span>
+      </div>
 
-            {/* Bar */}
-            <div 
-              className="w-full bg-gray-50 rounded-2xl group-hover:bg-indigo-50 transition-colors relative overflow-hidden"
-              style={{ height: '100%' }}
-            >
-              <div 
-                className="absolute bottom-0 left-0 w-full bg-black rounded-2xl transition-all duration-1000 group-hover:bg-indigo-600"
-                style={{ height: `${(d.value / maxValue) * 100}%` }}
-              />
-            </div>
-
-            <span className="text-[10px] font-black text-gray-400 uppercase">{d.label}</span>
+      <div className="flex-1 relative min-h-[150px] w-full flex flex-col justify-end">
+        {isLoading ? (
+          <div className="w-full h-full flex items-end gap-2 animate-pulse">
+            <div className="w-full h-[40%] bg-gray-100 rounded-t-3xl" />
+            <div className="w-full h-[60%] bg-gray-100 rounded-t-3xl" />
+            <div className="w-full h-[50%] bg-gray-100 rounded-t-3xl" />
+            <div className="w-full h-[70%] bg-gray-100 rounded-t-3xl" />
+            <div className="w-full h-[55%] bg-gray-100 rounded-t-3xl" />
+            <div className="w-full h-[80%] bg-gray-100 rounded-t-3xl" />
           </div>
-        ))}
+        ) : (
+          <div className="relative w-full h-full">
+             {/* SVG Graph */}
+             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                <defs>
+                   <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                   </linearGradient>
+                </defs>
+                
+                {/* Area Fill */}
+                <path d={areaPath} fill="url(#chartGradient)" className="transition-all duration-1000 ease-out" />
+                
+                {/* Line Stroke */}
+                <path d={linePath} fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-1000 ease-out" />
+                
+                {/* Dots & Interactivity */}
+                {data.map((d, i) => (
+                  <g key={i}>
+                     {/* Invisible Hit Area for easier hovering */}
+                     <rect 
+                        x={getX(i) - 5} 
+                        y={0} 
+                        width={10} 
+                        height={height} 
+                        fill="transparent" 
+                        onMouseEnter={() => setHoveredIndex(i)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                        className="cursor-pointer"
+                     />
+                     {/* Visible Dot */}
+                     <circle 
+                        cx={getX(i)} 
+                        cy={getY(d.value)} 
+                        r={hoveredIndex === i ? 2 : 1} 
+                        fill={hoveredIndex === i ? "#fff" : "#4f46e5"} 
+                        stroke="#4f46e5" 
+                        strokeWidth={hoveredIndex === i ? 1 : 0}
+                        className="transition-all duration-300" 
+                     />
+                  </g>
+                ))}
+             </svg>
+
+             {/* Tooltip Overlay */}
+             {hoveredIndex !== null && (
+               <div 
+                 className="absolute bg-black text-white px-3 py-1.5 rounded-xl text-[10px] font-black pointer-events-none shadow-xl transform -translate-x-1/2 -translate-y-full transition-all duration-200 z-20"
+                 style={{ 
+                   left: `${(hoveredIndex / (data.length - 1)) * 100}%`, 
+                   top: `${(getY(data[hoveredIndex].value) / height) * 100}%`,
+                   marginTop: '-10px'
+                 }}
+               >
+                 {formatCurrency(data[hoveredIndex].value)}
+               </div>
+             )}
+             
+             {/* X Axis Labels */}
+             <div className="flex justify-between mt-2 px-1">
+               {data.map((d, i) => (
+                 <span key={i} className={`text-[8px] font-black uppercase tracking-wider transition-colors ${hoveredIndex === i ? 'text-indigo-600' : 'text-gray-300'}`}>
+                   {d.label}
+                 </span>
+               ))}
+             </div>
+          </div>
+        )}
       </div>
     </div>
   );

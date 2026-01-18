@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import GoalModal from '@/components/modals/GoalModal';
+import GoalContributionModal from '@/components/modals/GoalContributionModal';
 import toast from 'react-hot-toast';
 
 interface Goal {
@@ -18,8 +19,12 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  
+  const [isContributeModalOpen, setIsContributeModalOpen] = useState(false);
+  const [contributingGoal, setContributingGoal] = useState<Goal | null>(null);
 
   const fetchGoals = async () => {
     setIsLoading(true);
@@ -43,6 +48,11 @@ export default function GoalsPage() {
     } catch {
       toast.error('Erro ao excluir');
     }
+  };
+
+  const handleContribute = (goal: Goal) => {
+    setContributingGoal(goal);
+    setIsContributeModalOpen(true);
   };
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -72,10 +82,34 @@ export default function GoalsPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 xl:p-10 custom-scrollbar">
           <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 pb-20">
              {isLoading ? (
-               <div className="col-span-full py-20 text-center flex flex-col items-center gap-4">
-                  <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin" />
-                  <span className="font-black text-gray-300 uppercase text-[10px] tracking-widest">Sincronizando...</span>
-               </div>
+               [...Array(4)].map((_, i) => (
+                 <div key={i} className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-gray-100 flex flex-col min-h-[250px] justify-between">
+                    <div className="flex justify-between items-start mb-10">
+                       <div className="w-14 h-14 rounded-[1.25rem] bg-gray-100 animate-pulse" />
+                       <div className="flex gap-2">
+                          <div className="w-9 h-9 bg-gray-50 rounded-xl animate-pulse" />
+                          <div className="w-9 h-9 bg-gray-50 rounded-xl animate-pulse" />
+                       </div>
+                    </div>
+                    <div>
+                      <div className="h-8 w-3/4 bg-gray-100 rounded-lg animate-pulse mb-2" />
+                      <div className="h-3 w-1/3 bg-gray-50 rounded animate-pulse mb-8" />
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-end">
+                           <div className="space-y-2">
+                             <div className="h-2 w-16 bg-gray-50 rounded animate-pulse" />
+                             <div className="h-8 w-32 bg-gray-100 rounded-lg animate-pulse" />
+                           </div>
+                           <div className="space-y-2 flex flex-col items-end">
+                             <div className="h-2 w-10 bg-gray-50 rounded animate-pulse" />
+                             <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+                           </div>
+                        </div>
+                        <div className="h-4 w-full bg-gray-50 rounded-full animate-pulse" />
+                      </div>
+                    </div>
+                 </div>
+               ))
              ) : goals.length === 0 ? (
                <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
                   <p className="text-sm font-bold text-gray-400">Nenhum objetivo traçado ainda.</p>
@@ -90,6 +124,9 @@ export default function GoalsPage() {
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-6.857 2.143L12 21l-2.143-6.857L3 12l6.857-2.143L12 3z" /></svg>
                          </div>
                          <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => handleContribute(goal)} className="p-2.5 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-emerald-600 transition-colors" title="Adicionar Saldo">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                            </button>
                             <button onClick={() => { setEditingGoal(goal); setIsModalOpen(true); }} className="p-2.5 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-black transition-colors">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
@@ -136,6 +173,12 @@ export default function GoalsPage() {
         </div>
       </main>
       <GoalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchGoals} goal={editingGoal} />
+      <GoalContributionModal 
+        isOpen={isContributeModalOpen} 
+        onClose={() => setIsContributeModalOpen(false)} 
+        onSuccess={fetchGoals} 
+        goal={contributingGoal} 
+      />
     </div>
   );
 }

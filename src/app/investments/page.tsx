@@ -88,13 +88,21 @@ export default function InvestmentsPage() {
                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                   <div>
                     <span className="text-gray-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">Patrimônio em Ativos</span>
-                    <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalCurrent)}</h2>
+                    {isLoading ? (
+                      <div className="h-14 w-48 bg-white/10 rounded-xl animate-pulse mt-4" />
+                    ) : (
+                      <h2 className="text-4xl md:text-6xl font-black tabular-nums mt-4 tracking-tighter transition-transform group-hover:scale-[1.02] origin-left duration-500">{formatCurrency(totalCurrent)}</h2>
+                    )}
                   </div>
                   <div className="flex flex-col md:items-end">
                     <span className="text-gray-400 text-[10px] md:text-xs font-black uppercase tracking-[0.3em]">Lucro/Prejuízo Total</span>
-                    <div className={`text-2xl md:text-3xl font-black tabular-nums mt-2 ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {totalProfit >= 0 ? '+' : ''}{formatCurrency(totalProfit)}
-                    </div>
+                    {isLoading ? (
+                       <div className="h-8 w-32 bg-white/10 rounded-lg animate-pulse mt-2" />
+                    ) : (
+                      <div className={`text-2xl md:text-3xl font-black tabular-nums mt-2 ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {totalProfit >= 0 ? '+' : ''}{formatCurrency(totalProfit)}
+                      </div>
+                    )}
                   </div>
                </div>
                <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-colors duration-700" />
@@ -102,10 +110,37 @@ export default function InvestmentsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                {isLoading ? (
-                 <div className="col-span-full py-20 text-center flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin" />
-                    <span className="font-black text-gray-300 uppercase text-[10px] tracking-widest">Sincronizando Carteira...</span>
-                 </div>
+                 [...Array(6)].map((_, i) => (
+                   <div key={i} className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 min-h-[280px] flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                         <div className="w-12 h-12 bg-gray-100 rounded-2xl animate-pulse" />
+                         <div className="h-6 w-16 bg-gray-50 rounded-lg animate-pulse" />
+                      </div>
+                      <div className="mt-6 space-y-4">
+                        <div className="space-y-2">
+                          <div className="h-3 w-12 bg-gray-100 rounded animate-pulse" />
+                          <div className="h-8 w-3/4 bg-gray-100 rounded-lg animate-pulse" />
+                          <div className="h-3 w-1/3 bg-gray-50 rounded animate-pulse" />
+                        </div>
+                        <div className="border-t border-gray-50 pt-4 space-y-4">
+                           <div className="flex justify-between">
+                             <div className="space-y-1">
+                               <div className="h-2 w-10 bg-gray-100 rounded animate-pulse" />
+                               <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+                             </div>
+                             <div className="space-y-1 text-right">
+                               <div className="h-2 w-10 bg-gray-100 rounded animate-pulse ml-auto" />
+                               <div className="h-4 w-20 bg-gray-100 rounded animate-pulse ml-auto" />
+                             </div>
+                           </div>
+                           <div className="space-y-1">
+                             <div className="h-2 w-16 bg-gray-100 rounded animate-pulse" />
+                             <div className="h-8 w-full bg-gray-100 rounded-lg animate-pulse" />
+                           </div>
+                        </div>
+                      </div>
+                   </div>
+                 ))
                ) : investments.length === 0 ? (
                  <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
                     <p className="text-sm font-bold text-gray-400">Sua carteira de investimentos está vazia.</p>
