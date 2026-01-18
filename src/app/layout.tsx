@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 };
 
 import AuthProvider from '@/components/AuthProvider';
+import PwaRegister from '@/components/PwaRegister';
 
 export default function RootLayout({
   children,
@@ -39,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <PwaRegister />
         <AuthProvider>
           {children}
           <Toaster 
