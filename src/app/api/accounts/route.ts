@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,37 +11,36 @@ export async function GET(request: Request) {
     if (!session?.user?.id) return NextResponse.json([]);
     const userId = session.user.id;
 
-    const { searchParams } = new URL(request.url);
-    const includeTransactions = searchParams.get('includeTransactions') === 'true';
+    // Fetch accounts with raw SQL
+    const accounts: any[] = await prisma.$queryRaw`
+      SELECT * FROM "Account" WHERE "userId" = ${userId} ORDER BY name ASC
+    `;
 
-    const accounts = await prisma.account.findMany({
-      where: { userId },
-      include: {
-        _count: {
-          select: { transactions: true }
-        },
-        transactions: includeTransactions ? {
-          select: { amount: true, type: true }
-        } : false,
-        investments: {
-          select: { currentValue: true, amount: true }
-        }
-      }
-    });
+    // Fetch transactions and investments to calculate balances
+    // Doing this in separate raw queries to maintain control
+    const transactions: any[] = await prisma.$queryRaw`
+      SELECT "accountId", amount, type FROM "Transaction" WHERE "userId" = ${userId}
+    `;
 
-    // Calcular balanços programaticamente para evitar SQL puro instável
+    const investments: any[] = await prisma.$queryRaw`
+      SELECT "accountId", amount, "currentValue" FROM "Investment" WHERE "userId" = ${userId}
+    `;
+
+    // Calculate balances programmatically
     const results = accounts.map(acc => {
-      // @ts-ignore
-      const balance = acc.transactions?.reduce((sum, t) => 
+      const accTxs = transactions.filter(t => t.accountId === acc.id);
+      const balance = accTxs.reduce((sum, t) => 
         t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
       
-      const investmentTotal = acc.investments?.reduce((sum, i) => 
+      const accInvs = investments.filter(i => i.accountId === acc.id);
+      const investmentTotal = accInvs.reduce((sum, i) => 
         sum + (i.currentValue || i.amount), 0) || 0;
 
       return {
         ...acc,
         balance,
-        investmentTotal
+        investmentTotal,
+        _count: { transactions: accTxs.length }
       };
     });
 
@@ -58,61 +58,50 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const userId = session.user.id;
+    const accountId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    // Criar conta usando Prisma Client
-    const account = await prisma.account.create({
-      data: {
-        name: body.name,
-        type: body.type,
-        color: body.color || '#000000',
-        userId: userId,
-      }
-    });
+    await prisma.$executeRaw`
+      INSERT INTO "Account" (id, name, type, color, "userId", "createdAt", "updatedAt")
+      VALUES (${accountId}, ${body.name}, ${body.type}, ${body.color || '#000000'}, ${userId}, ${now}, ${now})
+    `;
 
-    // Se houver saldo inicial, criar transação de ajuste
+    // If there is an initial balance, create an adjustment transaction
     if (body.initialBalance && Number(body.initialBalance) !== 0) {
       const amount = Number(body.initialBalance);
       const type = amount > 0 ? 'INCOME' : 'EXPENSE';
       
-      // Buscar ou criar categoria "Ajuste" usando Prisma Client
-      let category = await prisma.category.findFirst({
-        where: { name: 'Ajuste de Saldo', userId: userId }
-      });
+      // Get or create "Ajuste de Saldo" category
+      const categories: any[] = await prisma.$queryRaw`
+        SELECT id FROM "Category" WHERE name = 'Ajuste de Saldo' AND "userId" = ${userId} LIMIT 1
+      `;
       
-      if (!category) {
-        category = await prisma.category.create({
-          data: {
-            name: 'Ajuste de Saldo',
-            type: 'INCOME',
-            userId: userId
-          }
-        });
+      let categoryId: string;
+      if (!categories || categories.length === 0) {
+        categoryId = crypto.randomUUID().substring(0, 8);
+        await prisma.$executeRaw`
+          INSERT INTO "Category" (id, name, type, "userId")
+          VALUES (${categoryId}, 'Ajuste de Saldo', 'INCOME', ${userId})
+        `;
+      } else {
+        categoryId = categories[0].id;
       }
 
-      await prisma.transaction.create({
-        data: {
-          description: 'Saldo Inicial',
-          amount: Math.abs(amount),
-          date: new Date(),
-          type: type,
-          categoryId: category.id,
-          accountId: account.id,
-          userId: userId
-        }
-      });
+      const txId = crypto.randomUUID();
+      const fingerprint = crypto.createHash('md5').update(`${now}|initial-balance|${accountId}`).digest('hex');
+
+      await prisma.$executeRaw`
+        INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "externalId", "createdAt", "updatedAt")
+        VALUES (${txId}, 'Saldo Inicial', ${Math.abs(amount)}, ${now}, ${type}, ${categoryId}, ${accountId}, ${userId}, ${fingerprint}, ${now}, ${now})
+      `;
     }
 
-    return NextResponse.json(account, { status: 201 });
+    return NextResponse.json({ id: accountId }, { status: 201 });
   } catch (error: any) {
-    console.error('Account Create Error Full:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta
-    });
+    console.error('Account Create Error:', error);
     return NextResponse.json({ 
       message: 'Erro ao criar conta', 
-      details: error.message,
-      code: error.code 
+      details: error.message
     }, { status: 500 });
   }
 }

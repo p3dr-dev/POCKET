@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
+import crypto from 'crypto';
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -14,39 +15,33 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, password } = registerSchema.parse(body);
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+    const existingUsers: any[] = await prisma.$queryRaw`
+      SELECT id FROM "User" WHERE email = ${email} LIMIT 1
+    `;
 
-    if (existingUser) {
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json({ message: 'Email já cadastrado.' }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userCount = await prisma.user.count();
+    const userCountResult: any[] = await prisma.$queryRaw`SELECT count(*) as count FROM "User"`;
+    const userCount = Number(userCountResult[0].count);
     const role = userCount === 0 ? 'ADMIN' : 'USER';
+    const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-      }
-    });
-
-    const userId = user.id;
+    await prisma.$executeRaw`
+      INSERT INTO "User" (id, name, email, password, role, "createdAt", "updatedAt")
+      VALUES (${userId}, ${name}, ${email}, ${hashedPassword}, ${role}, ${now}, ${now})
+    `;
 
     // --- MIGRAÇÃO AUTOMÁTICA DE DADOS ORFÃOS ---
-    // Vincular TUDO que não tem userId a este novo usuário.
-    await Promise.all([
-      prisma.account.updateMany({ where: { userId: null }, data: { userId } }),
-      prisma.category.updateMany({ where: { userId: null }, data: { userId } }),
-      prisma.goal.updateMany({ where: { userId: null }, data: { userId } }),
-      prisma.debt.updateMany({ where: { userId: null }, data: { userId } }),
-      prisma.investment.updateMany({ where: { userId: null }, data: { userId } }),
-      prisma.transaction.updateMany({ where: { userId: null }, data: { userId } }),
-    ]);
+    await prisma.$executeRaw`UPDATE "Account" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Category" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Goal" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Debt" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Investment" SET "userId" = ${userId} WHERE "userId" IS NULL`;
+    await prisma.$executeRaw`UPDATE "Transaction" SET "userId" = ${userId} WHERE "userId" IS NULL`;
 
     // --- CRIAR CATEGORIAS PADRÃO ---
     const defaultCategories = [
@@ -62,20 +57,21 @@ export async function POST(request: Request) {
       { name: 'Outros', type: 'EXPENSE' }
     ];
 
-    await prisma.category.createMany({
-      data: defaultCategories.map(cat => ({
-        name: cat.name,
-        type: cat.type,
-        userId: userId
-      })),
-      skipDuplicates: true
-    });
+    for (const cat of defaultCategories) {
+      const catId = crypto.randomUUID().substring(0, 8);
+      await prisma.$executeRaw`
+        INSERT INTO "Category" (id, name, type, "userId")
+        VALUES (${catId}, ${cat.name}, ${cat.type}, ${userId})
+        ON CONFLICT DO NOTHING
+      `;
+    }
 
     return NextResponse.json({ message: 'Usuário criado com sucesso' }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Dados inválidos', errors: error.errors }, { status: 400 });
     }
+    console.error('Register Error:', error);
     return NextResponse.json({ message: 'Erro ao criar conta', error: error.message }, { status: 500 });
   }
 }

@@ -9,9 +9,15 @@ export const authConfig = {
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
+      if (token.role && session.user) {
+        (session.user as any).role = token.role;
+      }
       return session;
     },
-    async jwt({ token }) {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = (user as any).role;
+      }
       return token;
     },
   },

@@ -16,7 +16,9 @@ export async function GET(
 
     const account: any = await prisma.$queryRaw`
       SELECT a.*, 
-        (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance
+        (SELECT COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE -t.amount END), 0) 
+         FROM "Transaction" t 
+         WHERE t."accountId" = a.id) as balance
       FROM "Account" a
       WHERE a.id = ${id} AND a."userId" = ${session.user.id}
       LIMIT 1

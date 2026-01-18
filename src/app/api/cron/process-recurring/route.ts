@@ -13,55 +13,63 @@ export async function GET(req: Request) {
 
   try {
     const now = new Date();
-    const nowIso = now.toISOString();
     
     // 1. Buscar assinaturas pendentes
-    const dueSubs: any[] = await prisma.$queryRaw`
-      SELECT * FROM "RecurringTransaction" 
-      WHERE active = true AND "nextRun" <= ${nowIso}
-    `;
+    const dueSubs = await prisma.recurringTransaction.findMany({
+      where: {
+        active: true,
+        nextRun: { lte: now }
+      }
+    });
 
     const results = [];
 
     // 2. Processar cada uma
     for (const sub of dueSubs) {
-      const txId = crypto.randomUUID();
       const nowIso = new Date().toISOString();
       const externalId = `SUB-${sub.id}-${nowIso.split('T')[0]}`;
       const absAmount = Math.abs(Number(sub.amount));
 
       try {
-        // Criar transação (Usando executeRaw)
-        await prisma.$executeRaw`
-          INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "externalId", "createdAt", "updatedAt")
-          VALUES (${txId}, ${sub.description}, ${absAmount}, ${nowIso}, ${sub.type}, ${sub.categoryId}, ${sub.accountId}, ${sub.userId}, ${externalId}, ${nowIso}, ${nowIso})
-        `;
+        await prisma.$transaction(async (tx) => {
+          // Criar transação
+          await tx.transaction.create({
+            data: {
+              description: sub.description,
+              amount: absAmount,
+              date: new Date(),
+              type: sub.type as any,
+              categoryId: sub.categoryId,
+              accountId: sub.accountId,
+              userId: sub.userId,
+              externalId
+            }
+          });
 
-        // Calcular próxima data (Robusto para meses com menos dias)
-        const nextDate = new Date(sub.nextRun);
-        if (sub.frequency === 'MONTHLY') {
-          const currentMonth = nextDate.getMonth();
-          nextDate.setMonth(currentMonth + 1);
-          // Se o mês "saltou" mais do que o esperado (ex: 31 Jan -> Mar), ajustar para o último dia do mês anterior
-          if (nextDate.getMonth() > (currentMonth + 1) % 12) {
-            nextDate.setDate(0);
+          // Calcular próxima data
+          const nextDate = new Date(sub.nextRun);
+          if (sub.frequency === 'MONTHLY') {
+            const currentMonth = nextDate.getMonth();
+            nextDate.setMonth(currentMonth + 1);
+            if (nextDate.getMonth() > (currentMonth + 1) % 12) {
+              nextDate.setDate(0);
+            }
+          } else if (sub.frequency === 'WEEKLY') {
+            nextDate.setDate(nextDate.getDate() + 7);
+          } else if (sub.frequency === 'YEARLY') {
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
           }
-        } else if (sub.frequency === 'WEEKLY') {
-          nextDate.setDate(nextDate.getDate() + 7);
-        } else if (sub.frequency === 'YEARLY') {
-          nextDate.setFullYear(nextDate.getFullYear() + 1);
-        }
 
-        // Atualizar assinatura
-        await prisma.$executeRaw`
-          UPDATE "RecurringTransaction" 
-          SET "nextRun" = ${nextDate.toISOString()}, "updatedAt" = ${nowIso}
-          WHERE id = ${sub.id}
-        `;
+          // Atualizar assinatura
+          await tx.recurringTransaction.update({
+            where: { id: sub.id },
+            data: { nextRun: nextDate }
+          });
+        });
 
         results.push(`Processed: ${sub.description}`);
       } catch (e: any) {
-        if (e.message?.includes('UNIQUE')) {
+        if (e.message?.includes('Unique constraint')) {
            results.push(`Skipped (Duplicate): ${sub.description}`);
         } else {
            results.push(`Error: ${sub.description} - ${e.message}`);
@@ -71,6 +79,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ processed: results.length, details: results });
   } catch (error) {
+    console.error('Recurring Process Error:', error);
     return NextResponse.json({ error: 'Erro no processamento' }, { status: 500 });
   }
 }

@@ -62,7 +62,7 @@ export default function DailyExpensesWidget({ transactions }: { transactions: Tr
             />
             
             {/* Label (apenas alguns dias para não poluir) */}
-            <span className="text-[9px] font-bold text-gray-400">
+            <span className="text-[11px] font-bold text-gray-400">
                {d.day % 5 === 0 || d.day === 1 ? d.day : ''}
             </span>
           </div>

@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       if (goals) {
         for (const g of goals) {
           await tx.$executeRaw`
-            INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", deadline, color, "createdAt", "updatedAt", "userId")
+            INSERT INTO "Goal" (id, name, "targetAmount", "currentAmount", "deadline", color, "createdAt", "updatedAt", "userId")
             VALUES (${g.id}, ${g.name}, ${g.targetAmount}, ${g.currentAmount}, ${g.deadline}, ${g.color}, ${g.createdAt}, ${g.updatedAt}, ${userId})
           `;
         }

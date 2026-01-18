@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,18 +10,18 @@ export async function GET() {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json([]);
 
-    const userId = session.user.id;
-    const subs = await prisma.$queryRaw`
-      SELECT s.*, c.name as "categoryName", a.name as "accountName"
-      FROM "RecurringTransaction" s
-      LEFT JOIN "Category" c ON s."categoryId" = c.id
-      LEFT JOIN "Account" a ON s."accountId" = a.id
-      WHERE s."userId" = ${userId}
-      ORDER BY s."nextRun" ASC
-    `;
+    const subs = await prisma.recurringTransaction.findMany({
+      where: { userId: session.user.id },
+      include: {
+        category: { select: { name: true } },
+        account: { select: { name: true } }
+      },
+      orderBy: { nextRun: 'asc' }
+    });
 
-    return NextResponse.json(Array.isArray(subs) ? subs : []);
+    return NextResponse.json(subs);
   } catch (error) {
+    console.error('Subscriptions GET Error:', error);
     return NextResponse.json([]);
   }
 }
@@ -33,28 +34,33 @@ export async function POST(request: Request) {
     const body = await request.json();
     const userId = session.user.id;
 
-    // Validate Account Ownership
-    const account: any[] = await prisma.$queryRaw`SELECT id FROM "Account" WHERE id = ${body.accountId} AND "userId" = ${userId} LIMIT 1`;
-    if (!account || account.length === 0) {
-      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
-    }
+    const account = await prisma.account.findUnique({
+      where: { id: body.accountId, userId }
+    });
+    if (!account) return NextResponse.json({ message: 'Conta inválida' }, { status: 403 });
 
-    // Validate Category Ownership
-    const category: any[] = await prisma.$queryRaw`SELECT id FROM "Category" WHERE id = ${body.categoryId} AND "userId" = ${userId} LIMIT 1`;
-    if (!category || category.length === 0) {
-      return NextResponse.json({ message: 'Categoria inválida ou não encontrada' }, { status: 403 });
-    }
+    const category = await prisma.category.findUnique({
+      where: { id: body.categoryId, userId }
+    });
+    if (!category) return NextResponse.json({ message: 'Categoria inválida' }, { status: 403 });
 
-    const id = crypto.randomUUID().substring(0, 12);
-    const now = new Date().toISOString();
+    const sub = await prisma.recurringTransaction.create({
+      data: {
+        description: body.description,
+        amount: Math.abs(Number(body.amount)),
+        type: body.type,
+        frequency: body.frequency,
+        nextRun: new Date(body.nextRun),
+        active: true,
+        categoryId: body.categoryId,
+        accountId: body.accountId,
+        userId
+      }
+    });
 
-    await prisma.$executeRaw`
-      INSERT INTO "RecurringTransaction" (id, description, amount, type, frequency, "nextRun", active, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
-      VALUES (${id}, ${body.description}, ${Math.abs(Number(body.amount))}, ${body.type}, ${body.frequency}, ${new Date(body.nextRun).toISOString()}, true, ${body.categoryId}, ${body.accountId}, ${userId}, ${now}, ${now})
-    `;
-
-    return NextResponse.json({ id }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ message: 'Erro ao criar assinatura' }, { status: 500 });
+    return NextResponse.json(sub, { status: 201 });
+  } catch (error: any) {
+    console.error('Subscriptions POST Error:', error);
+    return NextResponse.json({ message: 'Erro ao criar assinatura', details: error.message }, { status: 500 });
   }
 }

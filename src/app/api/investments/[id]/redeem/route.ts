@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const { amount, targetAccountId } = await request.json();
+    const body = await request.json();
+    const { amount, targetAccountId } = body;
     const redeemAmount = Math.abs(Number(amount));
 
     if (!redeemAmount || !targetAccountId) {
@@ -19,6 +21,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const userId = session.user.id;
     const now = new Date().toISOString();
+    
+    // Usar data fornecida ou agora
+    const txDate = body.date ? (body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`) : now;
 
     // Buscar investimento
     const investments: any[] = await prisma.$queryRaw`
@@ -58,7 +63,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const txId = crypto.randomUUID();
     await prisma.$executeRaw`
       INSERT INTO "Transaction" (id, description, amount, date, type, "categoryId", "accountId", "userId", "createdAt", "updatedAt")
-      VALUES (${txId}, ${`Resgate: ${investment.name}`}, ${redeemAmount}, ${now}, 'INCOME', ${categoryId}, ${targetAccountId}, ${userId}, ${now}, ${now})
+      VALUES (${txId}, ${`Resgate: ${investment.name}`}, ${redeemAmount}, ${txDate}, 'INCOME', ${categoryId}, ${targetAccountId}, ${userId}, ${now}, ${now})
     `;
 
     // 1. Atualizar ou Deletar Investimento

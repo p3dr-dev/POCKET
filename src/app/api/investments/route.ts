@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ export async function GET() {
 
     return NextResponse.json(Array.isArray(investments) ? investments : []);
   } catch (error) {
+    console.error('Investments GET Error:', error);
     return NextResponse.json([]);
   }
 }
@@ -72,9 +74,9 @@ export async function POST(request: Request) {
     `;
 
     return NextResponse.json({ id }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Investment POST Error:', error);
-    return NextResponse.json({ message: 'Erro ao criar investimento' }, { status: 500 });
+    return NextResponse.json({ message: 'Erro ao criar investimento', details: error.message }, { status: 500 });
   }
 }
 

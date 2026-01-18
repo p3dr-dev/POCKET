@@ -47,7 +47,7 @@ export default function MonthlyDebtsWidget({ debts }: { debts: Debt[] }) {
                  <div className="flex justify-between items-end">
                    <div>
                      <p className="font-bold text-xs text-gray-900 line-clamp-1">{debt.description}</p>
-                     <p className={`text-[9px] font-black uppercase ${isOverdue ? 'text-rose-500' : 'text-gray-400'}`}>
+                     <p className={`text-[11px] font-black uppercase ${isOverdue ? 'text-rose-500' : 'text-gray-400'}`}>
                        {isOverdue ? 'Vencida dia ' : 'Vence dia '}{new Date(debt.dueDate).getDate()}
                      </p>
                    </div>
