@@ -32,7 +32,7 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
   const [type, setType] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
   const [categoryId, setCategoryId] = useState('');
   const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(new Date().toLocaleTimeString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', 'T'));
   
   // Receipt details
   const [payee, setPayee] = useState('');
@@ -73,7 +73,11 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
           setType(transaction.type);
           setCategoryId(transaction.categoryId);
           setAccountId(transaction.accountId);
-          setDate(new Date(transaction.date).toISOString().split('T')[0]);
+          
+          const localDate = new Date(transaction.date);
+          const formatted = localDate.toLocaleTimeString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', 'T');
+          setDate(formatted);
+
           setPayee(transaction.payee || '');
           setPayer(transaction.payer || '');
           setBankRefId(transaction.bankRefId || '');
@@ -150,7 +154,16 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
       if (data.accountId) { setAccountId(data.accountId); fields.push('accountId'); }
     }
     
-    if (data.date) { setDate(data.date); fields.push('date'); }
+    if (data.date) {
+        const hasTime = data.date.includes('T') || data.date.includes(':');
+        if (!hasTime) {
+            const nowTime = new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+            setDate(`${data.date}T${nowTime}`);
+        } else {
+            setDate(data.date);
+        }
+        fields.push('date');
+    }
     if (data.payee) setPayee(data.payee);
     if (data.payer) setPayer(data.payer);
     if (data.bankRefId) setBankRefId(data.bankRefId);
@@ -232,7 +245,7 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
   const resetForm = () => {
     setDescription(''); setAmount(''); setTransferAmount(''); setMagicText('');
     setPayee(''); setPayer(''); setBankRefId(''); setExternalId(null);
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(new Date().toLocaleTimeString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', 'T'));
     setType('EXPENSE');
   };
 
@@ -304,11 +317,6 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
           <form onSubmit={handleSubmit} className="space-y-5 pb-4">
             {activeTab === 'SINGLE' ? (
               <div className="space-y-5">
-                <div className="flex bg-gray-50 p-1 rounded-2xl">
-                  <button type="button" onClick={() => setType('EXPENSE')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'EXPENSE' ? 'bg-white text-rose-600 shadow-sm' : 'text-gray-400'}`}>Despesa</button>
-                  <button type="button" onClick={() => setType('INCOME')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'INCOME' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400'}`}>Receita</button>
-                </div>
-                
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>
@@ -344,10 +352,10 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                       )}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data</label>
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data e Hora</label>
                       <input 
                         required 
-                        type="date" 
+                        type="datetime-local" 
                         value={date} 
                         onChange={e => setDate(e.target.value)} 
                         className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-sm font-bold outline-none transition-all ${
@@ -448,8 +456,8 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                       <input required type="number" step="0.01" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="R$ 0,00" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data</label>
-                      <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data e Hora</label>
+                      <input required type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
                     </div>
                   </div>
                 </div>
@@ -478,8 +486,8 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                       <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="R$ 0,00" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data</label>
-                      <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Data e Hora</label>
+                      <input required type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
                     </div>
                   </div>
                   

@@ -132,10 +132,25 @@ export default function Dashboard() {
   const handleManualAI = async () => {
     setIsAiLoading(true);
     try {
+      // Calcular breakdown localmente para enviar à IA
+      const currentMonth = new Date().getMonth();
+      const expenses = transactions.filter(t => t.type === 'EXPENSE' && new Date(t.date).getMonth() === currentMonth);
+      const grouped = expenses.reduce((acc, t) => {
+        const cat = t.category?.name || 'Outros';
+        acc[cat] = (acc[cat] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topCategories = Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, val]) => `${name}: R$ ${val.toFixed(2)}`)
+        .join(', ');
+
       const res = await fetch('/api/ai/insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stats),
+        body: JSON.stringify({ ...stats, topCategories }),
       });
       const result = await res.json();
       setAiInsight(result.content);
