@@ -54,6 +54,33 @@ export default function SubscriptionsPage() {
     }
   };
 
+  const handleManualPayment = async (e: React.MouseEvent, sub: Subscription) => {
+    e.stopPropagation();
+    const amount = prompt(`Valor do pagamento para "${sub.description}":`, sub.amount?.toString() || '');
+    if (!amount || isNaN(parseFloat(amount))) return;
+
+    const date = prompt(`Data do pagamento (AAAA-MM-DD):`, new Date().toISOString().split('T')[0]);
+    if (!date) return;
+
+    const tid = toast.loading('Registrando pagamento...');
+    try {
+      const res = await fetch(`/api/subscriptions/${sub.id}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parseFloat(amount), date })
+      });
+
+      if (res.ok) {
+        toast.success('Pagamento registrado!', { id: tid });
+        fetchSubscriptions();
+      } else {
+        throw new Error();
+      }
+    } catch {
+      toast.error('Erro ao registrar', { id: tid });
+    }
+  };
+
   const handleEdit = (sub: Subscription) => {
     setEditingSubscription(sub);
     setIsModalOpen(true);
@@ -135,14 +162,24 @@ export default function SubscriptionsPage() {
                         {sub.nextRun ? `Próximo: ${new Date(sub.nextRun).toLocaleDateString('pt-BR')}` : 'Data Variável'}
                       </p>
                       
-                      <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase truncate max-w-[120px]">{sub.account?.name || 'Sem conta'}</span>
-                         <button 
-                           onClick={(e) => toggleActive(e, sub.id, sub.active)}
-                           className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${sub.active ? 'bg-rose-50 text-rose-600 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-                         >
-                           {sub.active ? 'Pausar' : 'Ativar'}
-                         </button>
+                      <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between gap-2">
+                         <div className="flex items-center gap-2">
+                            <button 
+                              onClick={(e) => toggleActive(e, sub.id, sub.active)}
+                              className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${sub.active ? 'bg-rose-50 text-rose-600 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                            >
+                              {sub.active ? 'Pausar' : 'Ativar'}
+                            </button>
+                            {sub.active && (
+                              <button 
+                                onClick={(e) => handleManualPayment(e, sub)}
+                                className="bg-black text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors shadow-lg shadow-black/10"
+                              >
+                                Pagar
+                              </button>
+                            )}
+                         </div>
+                         <span className="text-[10px] font-bold text-gray-400 uppercase truncate max-w-[100px] text-right">{sub.account?.name || 'Sem conta'}</span>
                       </div>
                    </div>
                  ))}
