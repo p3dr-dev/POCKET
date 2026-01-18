@@ -13,10 +13,7 @@ interface Account {
   name: string;
   type: 'BANK' | 'CASH' | 'CREDIT_CARD' | 'CRYPTO' | 'INVESTMENT';
   color: string;
-  transactions: {
-    amount: number;
-    type: 'INCOME' | 'EXPENSE';
-  }[];
+  balance: number;
 }
 
 export default function AccountsPage() {
@@ -68,7 +65,7 @@ export default function AccountsPage() {
     const exportData = accounts.map(acc => ({
       Nome: acc.name,
       Tipo: acc.type,
-      Saldo: calculateBalance(acc),
+      Saldo: acc.balance,
       Data_Exportacao: new Date().toLocaleDateString('pt-BR')
     }));
     downloadCSV(exportData, `contas_${new Date().toISOString().split('T')[0]}.csv`);
@@ -77,13 +74,6 @@ export default function AccountsPage() {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
-
-  const calculateBalance = (account: Account) => {
-    if (!account.transactions) return 0;
-    return account.transactions.reduce((acc, t) => {
-      return t.type === 'INCOME' ? acc + t.amount : acc - t.amount;
-    }, 0);
   };
 
   const getIcon = (type: string) => {
@@ -167,8 +157,8 @@ export default function AccountsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {accounts.map((acc) => {
-                  const balance = calculateBalance(acc);
+                {accounts.map((acc: any) => {
+                  const balance = acc.balance || 0;
                   return (
                     <div key={acc.id} className="group bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 flex flex-col justify-between min-h-[220px]">
                       <div className="flex justify-between items-start">

@@ -14,28 +14,36 @@ export async function GET(request: Request) {
     const accounts = await prisma.account.findMany({
       where: { userId },
       include: {
-        transactions: { select: { amount: true, type: true } },
-        investments: { select: { amount: true, currentValue: true } },
         _count: { select: { transactions: true } }
       },
       orderBy: { name: 'asc' }
     });
 
-    const results = accounts.map(acc => {
-      const balance = acc.transactions.reduce((sum, t) => 
-        t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
-      
-      const investmentTotal = acc.investments.reduce((sum, i) => 
-        sum + (i.currentValue || i.amount), 0) || 0;
+    const results = await Promise.all(accounts.map(async (acc) => {
+      const [incomeSum, expenseSum, investmentSum] = await Promise.all([
+        prisma.transaction.aggregate({
+          where: { accountId: acc.id, userId, type: 'INCOME' },
+          _sum: { amount: true }
+        }),
+        prisma.transaction.aggregate({
+          where: { accountId: acc.id, userId, type: 'EXPENSE' },
+          _sum: { amount: true }
+        }),
+        prisma.investment.aggregate({
+          where: { accountId: acc.id, userId },
+          _sum: { currentValue: true, amount: true }
+        })
+      ]);
+
+      const balance = (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+      const investmentTotal = investmentSum._sum.currentValue || investmentSum._sum.amount || 0;
 
       return {
         ...acc,
         balance,
-        investmentTotal,
-        transactions: undefined, // Remover do retorno para economizar banda
-        investments: undefined
+        investmentTotal
       };
-    });
+    }));
 
     return NextResponse.json(results);
   } catch (error) {

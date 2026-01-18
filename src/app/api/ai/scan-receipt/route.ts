@@ -33,13 +33,23 @@ export async function POST(request: Request) {
     let text = "";
 
     if (file.type.startsWith('image/')) {
-      // Remover Tesseract.js e usar a IA para descrever a imagem
-      const base64Image = buffer.toString('base64');
-      const imagePrompt = `Descreva o texto contido nesta imagem. Extraia qualquer informação financeira relevante, como valores, datas, descrições, recebedores ou pagadores. Retorne apenas o texto puro da imagem.`;
+      // Usar Tesseract.js para extração robusta de texto de imagens
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('por', 1, {
+        workerPath: path.join(process.cwd(), 'node_modules', 'tesseract.js', 'dist', 'worker.min.js'),
+        langPath: process.cwd(),
+      });
+      const { data: { text: ocrText } } = await worker.recognize(buffer);
+      await worker.terminate();
+      text = ocrText;
       
-      const aiResponse = await askAI(imagePrompt, "Você é um assistente de visão computacional especializado em extrair texto de imagens, focando em dados financeiros.", base64Image);
-      text = aiResponse || ''; // Se a IA não retornar texto, assume vazio
-      
+      // Fallback para IA de visão se o OCR for fraco
+      if (!text || text.length < 20) {
+        const base64Image = buffer.toString('base64');
+        const imagePrompt = `Descreva o texto contido nesta imagem. Extraia qualquer informação financeira relevante, como valores, datas, descrições, recebedores ou pagadores. Retorne apenas o texto puro da imagem.`;
+        const aiResponse = await askAI(imagePrompt, "Você é um assistente de visão computacional especializado em extrair texto de imagens financeiros.", base64Image);
+        text = aiResponse || text;
+      }
     } else {
       // Process PDF with external script
       const scriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf.js');

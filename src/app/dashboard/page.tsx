@@ -99,7 +99,10 @@ export default function Dashboard() {
     const prevMonthExpenses = prevMonthTxs.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
 
     const calcChange = (current: number, prev: number) => {
-      if (prev === 0) return current > 0 ? 100 : 0;
+      if (prev === 0) {
+        if (current === 0) return 0;
+        return current > 0 ? 100 : -100;
+      }
       return ((current - prev) / prev) * 100;
     };
 

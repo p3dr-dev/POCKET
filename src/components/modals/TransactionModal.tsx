@@ -185,12 +185,17 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
     setIsLoading(true);
 
     try {
+      // Garantir que a data seja enviada no formato correto
+      // Se for datetime-local, pegamos apenas a parte da data ou garantimos o formato ISO
+      const formattedDate = date.includes('T') ? date : `${date}T12:00:00.000Z`;
+
       if (activeTab === 'SINGLE') {
         const url = transaction ? `/api/transactions/${transaction.id}` : '/api/transactions';
         await secureFetch(url, {
           method: transaction ? 'PUT' : 'POST',
           body: JSON.stringify({ 
-            description, amount: parseFloat(amount), type, categoryId, accountId, date,
+            description, amount: parseFloat(amount), type, categoryId, accountId, 
+            date: formattedDate,
             payee, payer, bankRefId, externalId
           }),
         });
@@ -202,9 +207,9 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
             description: description || 'Rendimento Automático', 
             amount: parseFloat(amount), 
             type: 'INCOME', 
-            categoryId: 'YIELD_AUTO', // Flag para o backend resolver
+            categoryId: 'YIELD_AUTO',
             accountId, 
-            date,
+            date: formattedDate,
             payee: 'Banco', 
             payer: 'Banco'
           }),
@@ -218,7 +223,7 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
             fromAccountId, 
             toAccountId, 
             amount: parseFloat(transferAmount), 
-            date, 
+            date: formattedDate, 
             description: description || 'Transferência',
             payee,
             payer,

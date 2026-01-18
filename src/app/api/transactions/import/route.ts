@@ -391,54 +391,81 @@ export async function POST(request: Request) {
     let importedCount = 0;
     const processedInBatch = new Set<string>();
 
+    // 1. Pre-processar categorias necessárias (Batch Create)
+    const uniqueNewCategories = new Set<string>();
+    for (let i = 0; i < parsedTxs.length; i++) {
+      const type = parsedTxs[i].amount > 0 ? 'INCOME' : 'EXPENSE';
+      const name = suggestedNames[i] || "Outros";
+      const key = `${name.toLowerCase()}|${type}`;
+      if (!categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.type === type)) {
+        uniqueNewCategories.add(key);
+      }
+    }
+
+    if (uniqueNewCategories.size > 0) {
+      const newCatsData = Array.from(uniqueNewCategories).map(key => {
+        const [name, type] = key.split('|');
+        return { name: name.charAt(0).toUpperCase() + name.slice(1), type: type as any, userId };
+      });
+      
+      // createMany não retorna os IDs no PostgreSQL de forma simples via Prisma sem raw query em versões antigas,
+      // mas vamos criar e re-buscar para garantir os IDs.
+      await prisma.category.createMany({
+        data: newCatsData,
+        skipDuplicates: true
+      });
+      
+      // Atualizar lista local de categorias
+      const updatedCats = await prisma.category.findMany({ where: { userId } });
+      categories.length = 0;
+      categories.push(...updatedCats);
+    }
+
+    // 2. Preparar transações para criação em massa
+    const transactionsToCreate = [];
+    
+    // Buscar externalIds existentes para esta conta para evitar duplicatas
+    const existingExternalIds = new Set(
+      (await prisma.transaction.findMany({
+        where: { accountId, userId },
+        select: { externalId: true }
+      })).map(t => t.externalId)
+    );
+
     for (let i = 0; i < parsedTxs.length; i++) {
       const tx = parsedTxs[i];
-      const suggestedName = suggestedNames[i] || "Outros";
+      const suggestedName = (suggestedNames[i] || "Outros").toLowerCase();
+      const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
       const externalId = generateFingerprint(tx, accountId);
       
-      if (processedInBatch.has(externalId)) continue;
+      if (processedInBatch.has(externalId) || existingExternalIds.has(externalId)) continue;
 
-      const existing = await prisma.transaction.findUnique({
-        where: { externalId_accountId: { externalId, accountId } }
+      const category = categories.find(c => c.name.toLowerCase() === suggestedName && c.type === type);
+      const txDate = tx.date.includes('T') ? tx.date : `${tx.date}T12:00:00.000Z`;
+      
+      transactionsToCreate.push({
+        description: tx.description,
+        amount: Math.abs(tx.amount),
+        date: new Date(txDate),
+        type,
+        categoryId: category?.id || categories[0].id,
+        accountId,
+        userId,
+        payee: tx.payee || null,
+        payer: tx.payer || null,
+        bankRefId: tx.bankRefId || null,
+        externalId
       });
+      
+      processedInBatch.add(externalId);
+    }
 
-      if (!existing) {
-        const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
-        let category = categories.find(c => c.name.toLowerCase() === suggestedName.toLowerCase() && c.type === type);
-        
-        let catId: string;
-        if (!category) {
-          const newCat = await prisma.category.create({
-            data: { name: suggestedName, type, userId }
-          });
-          catId = newCat.id;
-          categories.push(newCat);
-        } else {
-          catId = category.id;
-        }
-        
-        const txDate = tx.date.includes('T') ? tx.date : `${tx.date}T12:00:00.000Z`;
-        const isoDate = new Date(txDate);
-
-        await prisma.transaction.create({
-          data: {
-            description: tx.description,
-            amount: Math.abs(tx.amount),
-            date: isoDate,
-            type,
-            categoryId: catId,
-            accountId,
-            userId,
-            payee: tx.payee || null,
-            payer: tx.payer || null,
-            bankRefId: tx.bankRefId || null,
-            externalId
-          }
-        });
-        
-        importedCount++;
-        processedInBatch.add(externalId);
-      }
+    if (transactionsToCreate.length > 0) {
+      const result = await prisma.transaction.createMany({
+        data: transactionsToCreate,
+        skipDuplicates: true
+      });
+      importedCount = result.count;
     }
 
     return NextResponse.json({ 

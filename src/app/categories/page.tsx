@@ -62,10 +62,10 @@ export default function CategoriesPage() {
 
   const handleUpdateLimit = async (id: string, name: string, limit: number | null) => {
     try {
-      const res = await fetch('/api/categories', {
+      const res = await fetch(`/api/categories/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name, monthlyLimit: limit }),
+        body: JSON.stringify({ name, monthlyLimit: limit }),
       });
       if (res.ok) toast.success('Atualizado');
       fetchCategories();
