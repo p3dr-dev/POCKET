@@ -120,6 +120,14 @@ export async function POST(request: Request) {
       crypto.createHash('md5').update(parsed.bankRefId).digest('hex') : 
       null;
 
+    let isDuplicate = false;
+    if (externalId) {
+      const existing = await prisma.transaction.findFirst({
+        where: { externalId, userId }
+      });
+      if (existing) isDuplicate = true;
+    }
+
     // Smart Matching for Category
     const category = categories.find(c => {
       const name = c.name.toLowerCase();
@@ -151,7 +159,8 @@ export async function POST(request: Request) {
       fromAccountId: fromAccount?.id,
       toAccountId: toAccount?.id,
       accountId: finalAccountId,
-      externalId
+      externalId,
+      isDuplicate
     });
 
   } catch (error) {

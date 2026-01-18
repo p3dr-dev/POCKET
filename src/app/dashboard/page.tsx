@@ -54,25 +54,36 @@ export default function Dashboard() {
   const fetchData = async (search = '') => {
     setIsLoading(true);
     try {
-      const [txRes, accRes, invRes, debtRes, catRes, nwRes, healthRes, subRes] = await Promise.all([
+      // Fase 1: Dados Vitais (Rápido)
+      const [txRes, accRes, invRes, debtRes, catRes, subRes] = await Promise.all([
         fetch(`/api/transactions?limit=500&search=${search}`),
         fetch('/api/accounts'),
         fetch('/api/investments'),
         fetch('/api/debts'),
         fetch('/api/categories'),
-        fetch('/api/reports/net-worth'),
-        fetch('/api/reports/financial-health'),
         fetch('/api/subscriptions')
       ]);
+      
       const txData = await txRes.json();
       setTransactions(txData.transactions || []);
       setAccounts(await accRes.json());
       setInvestments(await invRes.json());
       setDebts(await debtRes.json());
       setCategories(await catRes.json());
+      setSubscriptions(await subRes.json());
+
+      // Fase 2: Relatórios Pesados (Analytics)
+      const [nwRes, healthRes] = await Promise.all([
+        fetch('/api/reports/net-worth'),
+        fetch('/api/reports/financial-health')
+      ]);
+      
       setNetWorthHistory(await nwRes.json());
       setHealthData(await healthRes.json());
-      setSubscriptions(await subRes.json());
+
+    } catch (err) {
+      console.error('Fetch Error:', err);
+      toast.error('Erro de conexão com o servidor');
     } finally { setIsLoading(false); }
   };
 

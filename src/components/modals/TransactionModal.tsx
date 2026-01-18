@@ -141,6 +141,13 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
 
   const applyAiData = (data: any) => {
     const fields: string[] = [];
+    
+    if (data.isDuplicate) {
+      toast.error('Atenção: Este comprovante já foi registrado anteriormente!', { duration: 6000, icon: '⚠️' });
+    } else {
+      toast.success('Dados extraídos com inteligência!');
+    }
+
     if (data.type === 'TRANSFER') {
       setActiveTab('TRANSFER');
       setTransferAmount(data.amount.toString());
@@ -166,11 +173,12 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
         }
         fields.push('date');
     }
-    if (data.payee) setPayee(data.payee);
-    if (data.payer) setPayer(data.payer);
-    if (data.bankRefId) setBankRefId(data.bankRefId);
+    if (data.payee) { setPayee(data.payee); fields.push('payee'); }
+    if (data.payer) { setPayer(data.payer); fields.push('payer'); }
+    if (data.bankRefId) { setBankRefId(data.bankRefId); fields.push('bankRefId'); }
     if (data.externalId) setExternalId(data.externalId);
 
+    if (fields.length > 0) setShowAdvanced(true);
     setHighlightedFields(fields);
   };
 
@@ -414,10 +422,31 @@ export default function TransactionModal({ isOpen, onClose, onSuccess, transacti
                     {showAdvanced && (
                       <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                          <input value={payer} onChange={e => setPayer(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-3 text-xs font-bold outline-none transition-all" placeholder="Pagador" />
-                          <input value={payee} onChange={e => setPayee(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-3 text-xs font-bold outline-none transition-all" placeholder="Recebedor" />
+                          <input 
+                            value={payer} 
+                            onChange={e => setPayer(e.target.value)} 
+                            className={`w-full bg-gray-50 border-2 rounded-2xl p-3 text-xs font-bold outline-none transition-all ${
+                              highlightedFields.includes('payer') ? 'border-emerald-400 ring-4 ring-emerald-50 bg-white' : 'border-transparent focus:border-black'
+                            }`} 
+                            placeholder="Pagador" 
+                          />
+                          <input 
+                            value={payee} 
+                            onChange={e => setPayee(e.target.value)} 
+                            className={`w-full bg-gray-50 border-2 rounded-2xl p-3 text-xs font-bold outline-none transition-all ${
+                              highlightedFields.includes('payee') ? 'border-emerald-400 ring-4 ring-emerald-50 bg-white' : 'border-transparent focus:border-black'
+                            }`} 
+                            placeholder="Recebedor" 
+                          />
                         </div>
-                        <input value={bankRefId} onChange={e => setBankRefId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-3 mt-4 text-xs font-bold outline-none transition-all" placeholder="ID da Transação (Opcional)" />
+                        <input 
+                          value={bankRefId} 
+                          onChange={e => setBankRefId(e.target.value)} 
+                          className={`w-full bg-gray-50 border-2 rounded-2xl p-3 mt-4 text-xs font-bold outline-none transition-all ${
+                            highlightedFields.includes('bankRefId') ? 'border-emerald-400 ring-4 ring-emerald-50 bg-white' : 'border-transparent focus:border-black'
+                          }`} 
+                          placeholder="ID da Transação (Opcional)" 
+                        />
                       </div>
                     )}
                   </div>

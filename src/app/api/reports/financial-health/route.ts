@@ -10,26 +10,29 @@ export async function GET() {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     const userId = session.user.id;
 
-    // 1. Consolidar saldos de contas
-    const accounts = await prisma.account.findMany({
-      where: { userId }
+    // 1. Consolidar saldos de todas as contas em apenas 2 queries (Otimizado)
+    const [incomesByAccount, expensesByAccount] = await Promise.all([
+      prisma.transaction.groupBy({
+        by: ['accountId'],
+        where: { userId, type: 'INCOME' },
+        _sum: { amount: true }
+      }),
+      prisma.transaction.groupBy({
+        by: ['accountId'],
+        where: { userId, type: 'EXPENSE' },
+        _sum: { amount: true }
+      })
+    ]);
+
+    const balancesMap: Record<string, number> = {};
+    incomesByAccount.forEach(item => {
+      balancesMap[item.accountId] = (balancesMap[item.accountId] || 0) + (item._sum.amount || 0);
+    });
+    expensesByAccount.forEach(item => {
+      balancesMap[item.accountId] = (balancesMap[item.accountId] || 0) - (item._sum.amount || 0);
     });
 
-    const accountBalances = await Promise.all(accounts.map(async (acc) => {
-      const [incomeSum, expenseSum] = await Promise.all([
-        prisma.transaction.aggregate({
-          where: { accountId: acc.id, userId, type: 'INCOME' },
-          _sum: { amount: true }
-        }),
-        prisma.transaction.aggregate({
-          where: { accountId: acc.id, userId, type: 'EXPENSE' },
-          _sum: { amount: true }
-        })
-      ]);
-      return (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
-    }));
-
-    const liquidTotal = accountBalances.reduce((acc, val) => acc + val, 0);
+    const liquidTotal = Object.values(balancesMap).reduce((acc, val) => acc + val, 0);
 
     // 2. Consolidar Investimentos
     const investments = await prisma.investment.findMany({
