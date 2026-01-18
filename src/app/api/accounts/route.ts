@@ -8,32 +8,43 @@ export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json([]);
+    const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
     const includeTransactions = searchParams.get('includeTransactions') === 'true';
-    const userId = session.user.id;
 
-    const accounts: any[] = await prisma.$queryRaw`
-      SELECT a.*, 
-        (SELECT COALESCE(SUM(amount), 0) FROM "Transaction" t WHERE t."accountId" = a.id) as balance,
-        (SELECT COALESCE(SUM("currentValue"), 0) FROM "Investment" i WHERE i."accountId" = a.id) as "investmentTotal"
-      FROM "Account" a
-      WHERE a."userId" = ${userId}
-    `;
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      include: {
+        _count: {
+          select: { transactions: true }
+        },
+        transactions: includeTransactions ? {
+          select: { amount: true, type: true }
+        } : false,
+        investments: {
+          select: { currentValue: true, amount: true }
+        }
+      }
+    });
 
-    if (!Array.isArray(accounts)) return NextResponse.json([]);
+    // Calcular balanços programaticamente para evitar SQL puro instável
+    const results = accounts.map(acc => {
+      // @ts-ignore
+      const balance = acc.transactions?.reduce((sum, t) => 
+        t.type === 'INCOME' ? sum + t.amount : sum - t.amount, 0) || 0;
+      
+      const investmentTotal = acc.investments?.reduce((sum, i) => 
+        sum + (i.currentValue || i.amount), 0) || 0;
 
-    if (includeTransactions) {
-      const results = await Promise.all(accounts.map(async (acc) => {
-        const txs: any[] = await prisma.$queryRaw`
-          SELECT amount, type FROM "Transaction" WHERE "accountId" = ${acc.id} AND "userId" = ${userId}
-        `;
-        return { ...acc, transactions: txs || [] };
-      }));
-      return NextResponse.json(results);
-    }
+      return {
+        ...acc,
+        balance,
+        investmentTotal
+      };
+    });
 
-    return NextResponse.json(accounts);
+    return NextResponse.json(results);
   } catch (error) {
     console.error('Accounts GET Error:', error);
     return NextResponse.json([]);
@@ -48,6 +59,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const userId = session.user.id;
 
+    // Criar conta usando Prisma Client
     const account = await prisma.account.create({
       data: {
         name: body.name,
@@ -95,8 +107,7 @@ export async function POST(request: Request) {
     console.error('Account Create Error Full:', {
       message: error.message,
       code: error.code,
-      meta: error.meta,
-      stack: error.stack
+      meta: error.meta
     });
     return NextResponse.json({ 
       message: 'Erro ao criar conta', 

@@ -21,14 +21,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { email, password } = parsedCredentials.data;
           
           const users: any[] = await prisma.$queryRaw`
-            SELECT * FROM "User" WHERE email = ${email} LIMIT 1
+            SELECT id, name, email, password, role FROM "User" WHERE email = ${email} LIMIT 1
           `;
 
           if (!users || users.length === 0) return null;
           const user = users[0];
 
           const passwordsMatch = await bcrypt.compare(password, user.password);
-          if (passwordsMatch) return user;
+          if (passwordsMatch) {
+            return {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role
+            };
+          }
         }
 
         console.log('Invalid credentials');

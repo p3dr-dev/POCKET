@@ -9,48 +9,26 @@ export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json([]);
+    const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get('accountId');
 
-    let transactions;
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        userId: userId,
+        ...(accountId ? { accountId: accountId } : {})
+      },
+      include: {
+        category: { select: { name: true } },
+        account: { select: { name: true } }
+      },
+      orderBy: { date: 'desc' }
+    });
 
-    if (accountId) {
-      transactions = await prisma.$queryRaw`
-        SELECT 
-          t.*, 
-          c.name as "categoryName", 
-          a.name as "accountName"
-        FROM "Transaction" t
-        LEFT JOIN "Category" c ON t."categoryId" = c.id
-        LEFT JOIN "Account" a ON t."accountId" = a.id
-        WHERE t."userId" = ${session.user.id} AND t."accountId" = ${accountId}
-        ORDER BY t.date DESC
-      `;
-    } else {
-      transactions = await prisma.$queryRaw`
-        SELECT 
-          t.*, 
-          c.name as "categoryName", 
-          a.name as "accountName"
-        FROM "Transaction" t
-        LEFT JOIN "Category" c ON t."categoryId" = c.id
-        LEFT JOIN "Account" a ON t."accountId" = a.id
-        WHERE t."userId" = ${session.user.id}
-        ORDER BY t.date DESC
-      `;
-    }
-
-    if (!Array.isArray(transactions)) return NextResponse.json([]);
-
-    const serialized = transactions.map((t: any) => ({
-      ...t,
-      category: { name: t.categoryName },
-      account: { name: t.accountName }
-    }));
-
-    return NextResponse.json(serialized);
+    return NextResponse.json(transactions);
   } catch (error) {
+    console.error('Transactions GET Error:', error);
     return NextResponse.json([]);
   }
 }
