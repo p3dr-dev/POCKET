@@ -12,12 +12,9 @@ interface User {
   createdAt: string;
   _count: {
     accounts: number;
+    transactions: number;
   };
 }
-// ...
-                    <td className="px-6 py-4 text-xs font-bold text-gray-500">
-                      {user._count.accounts} contas cadastradas
-                    </td>
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -52,7 +49,7 @@ export default function AdminUsersPage() {
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Usuário</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Role</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Dados</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Atividade</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Criado em</th>
                 </tr>
               </thead>
@@ -78,7 +75,10 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-xs font-bold text-gray-500">
-                      {user._count.accounts} contas, {user._count.transactions} transações
+                      <div className="flex flex-col">
+                        <span>{user._count.accounts} contas</span>
+                        <span className="text-[10px] text-gray-400 font-medium">{user._count.transactions} transações totais</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-bold text-gray-400">
                       {new Date(user.createdAt).toLocaleDateString('pt-BR')}
