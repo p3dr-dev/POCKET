@@ -21,6 +21,8 @@ interface Transaction {
   amount: number;
   type: 'INCOME' | 'EXPENSE';
   date: string;
+  categoryId: string;
+  accountId: string;
   category: { name: string };
   account: { name: string };
 }
