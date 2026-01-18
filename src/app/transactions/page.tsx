@@ -29,6 +29,9 @@ interface Transaction {
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,12 +42,21 @@ export default function TransactionsPage() {
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (page = 1) => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/transactions');
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '50',
+        search: searchQuery,
+        type: filterType
+      });
+      const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
-      setTransactions(Array.isArray(data) ? data : []);
+      setTransactions(data.transactions || []);
+      setTotal(data.total || 0);
+      setPages(data.pages || 1);
+      setCurrentPage(data.currentPage || 1);
     } catch (error) {
       setTransactions([]);
     } finally {
@@ -53,7 +65,7 @@ export default function TransactionsPage() {
   };
 
   const handleExport = () => {
-    const exportData = filteredAndSortedTransactions.map(t => ({
+    const exportData = transactions.map(t => ({
       Data: new Date(t.date).toLocaleDateString('pt-BR'),
       Descrição: t.description,
       Valor: t.amount,
@@ -66,7 +78,12 @@ export default function TransactionsPage() {
     toast.success('Exportação concluída');
   };
 
-  useEffect(() => { fetchTransactions(); }, []);
+  useEffect(() => { 
+    const timer = setTimeout(() => {
+      fetchTransactions(1); 
+    }, 300); // Debounce search
+    return () => clearTimeout(timer);
+  }, [searchQuery, filterType]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir esta transação?')) return;
@@ -74,30 +91,24 @@ export default function TransactionsPage() {
       const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('Transação excluída');
-      fetchTransactions();
+      fetchTransactions(currentPage);
     } catch { toast.error('Erro ao excluir'); }
   };
 
-  const filteredAndSortedTransactions = useMemo(() => {
-    return transactions
-      .filter((t) => {
-        const matchesSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             t.category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             t.payee?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             t.payer?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesType = filterType === 'ALL' || t.type === filterType;
-        return matchesSearch && matchesType;
-      })
-      .sort((a, b) => {
-        let comparison = 0;
-        if (sortBy === 'date') {
-          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        } else {
-          comparison = a.amount - b.amount;
-        }
-        return sortOrder === 'desc' ? -comparison : comparison;
-      });
-  }, [transactions, searchQuery, filterType, sortBy, sortOrder]);
+  // Sorting is still fine on client for the current page, 
+  // or we could move it to server as well. 
+  // Given we fetch 50 at a time, client sort is instant.
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else {
+        comparison = a.amount - b.amount;
+      }
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+  }, [transactions, sortBy, sortOrder]);
 
   return (
     <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
@@ -113,9 +124,12 @@ export default function TransactionsPage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center mr-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              {total} transações
+            </div>
             <button 
               onClick={handleExport}
-              disabled={filteredAndSortedTransactions.length === 0}
+              disabled={transactions.length === 0}
               className="bg-white text-black border border-gray-100 px-5 py-3 rounded-2xl font-black hover:bg-gray-50 transition-all text-xs flex items-center gap-2 active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -147,11 +161,52 @@ export default function TransactionsPage() {
             />
 
             <TransactionTable 
-              transactions={filteredAndSortedTransactions}
+              transactions={sortedTransactions}
               isLoading={isLoading}
               onEdit={(t) => { setEditingTransaction(t); setIsModalOpen(true); }}
               onDelete={handleDelete}
             />
+
+            {/* Pagination */}
+            {pages > 1 && (
+              <div className="flex-none p-4 md:p-6 border-t border-gray-50 flex items-center justify-center gap-2">
+                <button 
+                  disabled={currentPage === 1 || isLoading}
+                  onClick={() => fetchTransactions(currentPage - 1)}
+                  className="p-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 disabled:opacity-30 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(pages)].map((_, i) => {
+                    const p = i + 1;
+                    // Show only first, last and 2 neighbors of current page
+                    if (p === 1 || p === pages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => fetchTransactions(p)}
+                          className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${
+                            currentPage === p ? 'bg-black text-white shadow-lg' : 'hover:bg-gray-50 text-gray-400'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    }
+                    if (p === 2 || p === pages - 1) return <span key={p} className="text-gray-200">...</span>;
+                    return null;
+                  })}
+                </div>
+                <button 
+                  disabled={currentPage === pages || isLoading}
+                  onClick={() => fetchTransactions(currentPage + 1)}
+                  className="p-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 disabled:opacity-30 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>

@@ -47,17 +47,18 @@ export default function Dashboard() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (search = '') => {
     setIsLoading(true);
     try {
       const [txRes, accRes, invRes, debtRes, catRes] = await Promise.all([
-        fetch('/api/transactions'),
-        fetch('/api/accounts?includeTransactions=true'),
+        fetch(`/api/transactions?limit=100&search=${search}`),
+        fetch('/api/accounts'),
         fetch('/api/investments'),
         fetch('/api/debts'),
         fetch('/api/categories')
       ]);
-      setTransactions(await txRes.json());
+      const txData = await txRes.json();
+      setTransactions(txData.transactions || []);
       setAccounts(await accRes.json());
       setInvestments(await invRes.json());
       setDebts(await debtRes.json());
@@ -65,7 +66,12 @@ export default function Dashboard() {
     } finally { setIsLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -84,7 +90,7 @@ export default function Dashboard() {
       return acc + b;
     }, 0) : 0;
 
-    const invTotal = Array.isArray(investments) ? investments.reduce((acc, i) => acc + i.amount, 0) : 0;
+    const invTotal = Array.isArray(investments) ? investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0) : 0;
 
     const periodTxs = Array.isArray(transactions) ? transactions.filter(t => new Date(t.date) >= filterDate) : [];
     const periodIncomes = periodTxs.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
@@ -136,8 +142,14 @@ export default function Dashboard() {
     setIsAiLoading(true);
     try {
       // Calcular breakdown localmente para enviar à IA
-      const currentMonth = new Date().getMonth();
-      const expenses = transactions.filter(t => t.type === 'EXPENSE' && new Date(t.date).getMonth() === currentMonth);
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      const expenses = transactions.filter(t => {
+        const d = new Date(t.date);
+        return t.type === 'EXPENSE' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
       const grouped = expenses.reduce((acc, t) => {
         const cat = t.category?.name || 'Outros';
         acc[cat] = (acc[cat] || 0) + t.amount;
@@ -153,7 +165,11 @@ export default function Dashboard() {
       const res = await fetch('/api/ai/insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...stats, topCategories }),
+        body: JSON.stringify({ 
+          ...stats, 
+          investmentTotal: investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0),
+          topCategories 
+        }),
       });
       const result = await res.json();
       setAiInsight(result.content);

@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     
     DADOS ATUAIS (Mês Atual):
     - Saldo Líquido Total: R$ ${stats.liquid?.toFixed(2)}
-    - Patrimônio (Net Worth): R$ ${stats.netWorth?.toFixed(2)}
+    - Patrimônio em Ativos (Investimentos): R$ ${stats.investmentTotal?.toFixed(2)}
+    - Patrimônio Total (Net Worth): R$ ${stats.netWorth?.toFixed(2)}
     - Receita Período: R$ ${stats.periodIncomes?.toFixed(2)}
     - Despesas Período: R$ ${stats.periodExpenses?.toFixed(2)}
     - Dívidas Pendentes: R$ ${stats.monthDebtsRemaining?.toFixed(2)}

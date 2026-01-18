@@ -8,28 +8,54 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json([]);
+    if (!session?.user?.id) return NextResponse.json({ transactions: [], total: 0 });
     const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get('accountId');
+    const search = searchParams.get('search');
+    const type = searchParams.get('type');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
 
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId,
-        ...(accountId ? { accountId } : {})
-      },
-      include: {
-        category: { select: { name: true } },
-        account: { select: { name: true } }
-      },
-      orderBy: { date: 'desc' }
+    const where: any = {
+      userId,
+      ...(accountId ? { accountId } : {}),
+      ...(type && type !== 'ALL' ? { type } : {}),
+      ...(search ? {
+        OR: [
+          { description: { contains: search, mode: 'insensitive' } },
+          { category: { name: { contains: search, mode: 'insensitive' } } },
+          { payee: { contains: search, mode: 'insensitive' } },
+          { payer: { contains: search, mode: 'insensitive' } }
+        ]
+      } : {})
+    };
+
+    const [transactions, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where,
+        include: {
+          category: { select: { name: true } },
+          account: { select: { name: true } }
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.transaction.count({ where })
+    ]);
+
+    return NextResponse.json({
+      transactions,
+      total,
+      pages: Math.ceil(total / limit),
+      currentPage: page
     });
-
-    return NextResponse.json(transactions);
   } catch (error) {
     console.error('Transactions GET Error:', error);
-    return NextResponse.json([]);
+    return NextResponse.json({ transactions: [], total: 0 });
   }
 }
 

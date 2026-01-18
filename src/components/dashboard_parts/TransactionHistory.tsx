@@ -56,26 +56,18 @@ export default function TransactionHistory({
   onEdit
 }: TransactionHistoryProps) {
   
-  const filteredTransactions = useMemo(() => {
-    if (!Array.isArray(transactions)) return [];
-    return transactions.filter(t => {
-      const mSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                      t.category.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return mSearch;
-    });
-  }, [transactions, searchQuery]);
-
   const groupedTransactions = useMemo(() => {
     const groups: { [key: string]: Transaction[] } = {};
+    const list = Array.isArray(transactions) ? transactions : [];
     
-    filteredTransactions.slice(0, 50).forEach(t => {
+    list.forEach(t => {
       const group = formatDateGroup(t.date);
       if (!groups[group]) groups[group] = [];
       groups[group].push(t);
     });
 
     return groups;
-  }, [filteredTransactions]);
+  }, [transactions]);
 
   return (
     <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100/50 flex flex-col overflow-hidden h-full">
