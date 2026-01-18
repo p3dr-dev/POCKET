@@ -72,6 +72,12 @@ export async function POST(request: Request) {
       data: { userId: user.id }
     });
 
+    // 6. Atualizar Transações
+    await prisma.transaction.updateMany({
+      where: { userId: null },
+      data: { userId: user.id }
+    });
+
     return NextResponse.json({ message: 'Usuário criado com sucesso' }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
