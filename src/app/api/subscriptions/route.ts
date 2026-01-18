@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         amount: body.amount !== null ? Math.abs(Number(body.amount)) : null,
         type: body.type,
         frequency: body.frequency,
-        nextRun: body.nextRun ? new Date(body.nextRun) : null,
+        nextRun: body.nextRun ? new Date(`${body.nextRun.split('T')[0]}T12:00:00.000Z`) : null,
         active: true,
         categoryId: body.categoryId,
         accountId: body.accountId,

@@ -43,7 +43,9 @@ export async function POST(request: Request) {
 
     const transferId = crypto.randomUUID();
     const txDateStr = (date || new Date().toISOString());
-    const isoDate = new Date(txDateStr.includes('T') ? txDateStr : `${txDateStr}T12:00:00.000Z`);
+    const rawDate = txDateStr.split('T')[0];
+    const isoDate = new Date(`${rawDate}T12:00:00.000Z`);
+    
     const cleanDesc = description || "Transferência entre contas";
     const absAmount = Math.abs(Number(amount));
 

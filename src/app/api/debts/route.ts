@@ -41,13 +41,12 @@ export async function POST(request: Request) {
           return NextResponse.json({ message: 'Valor total inválido' }, { status: 400 });
         }
     
-        let initialDate: Date | null = null;
-        if (body.dueDate) {
-          const dateStr = body.dueDate.includes('T') ? body.dueDate : `${body.dueDate}T12:00:00.000Z`;
-          initialDate = new Date(dateStr);
-        }
-    
-        const groupId = type !== 'SINGLE' ? crypto.randomUUID() : null;
+            let initialDate: Date | null = null;
+            if (body.dueDate) {
+              const rawDate = body.dueDate.split('T')[0];
+              initialDate = new Date(`${rawDate}T12:00:00.000Z`);
+            }
+                const groupId = type !== 'SINGLE' ? crypto.randomUUID() : null;
         const debtsData = [];
     
         for (let i = 0; i < count; i++) {

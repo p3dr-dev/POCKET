@@ -73,6 +73,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Descrição, valor e conta são obrigatórios' }, { status: 400 });
     }
 
+    // Normalização de Data p/ evitar erro de Timezone (Forçar Meio-dia UTC)
+    const rawDate = body.date.split('T')[0];
+    const txDate = new Date(`${rawDate}T12:00:00.000Z`);
+
     // Validar propriedade da conta
     const account = await prisma.account.findUnique({
       where: { id: body.accountId, userId }
@@ -81,9 +85,6 @@ export async function POST(request: Request) {
     if (!account) {
       return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
     }
-
-    const dateStr = body.date.includes('T') ? body.date : `${body.date}T12:00:00.000Z`;
-    const txDate = new Date(dateStr);
 
     let categoryId = body.categoryId;
 
