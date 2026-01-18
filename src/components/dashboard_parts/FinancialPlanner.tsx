@@ -3,11 +3,18 @@
 interface FinancialPlannerProps {
   monthDebtsTotal: number;
   monthDebtsRemaining: number;
+  monthlyFixedCost: number;
   dailyGoal: number;
   isLoading?: boolean;
 }
 
-export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining, dailyGoal, isLoading = false }: FinancialPlannerProps) {
+export default function FinancialPlanner({ 
+  monthDebtsTotal, 
+  monthDebtsRemaining, 
+  monthlyFixedCost,
+  dailyGoal, 
+  isLoading = false 
+}: FinancialPlannerProps) {
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   
   const paidAmount = monthDebtsTotal - monthDebtsRemaining;
@@ -19,33 +26,32 @@ export default function FinancialPlanner({ monthDebtsTotal, monthDebtsRemaining,
         <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-6">Planejamento do Mês</h3>
         
         <div className="space-y-6">
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Progresso de Quitação</p>
-              {isLoading ? (
-                <div className="h-8 w-40 bg-gray-100 rounded-lg animate-pulse mt-1" />
-              ) : (
-                <p className="text-2xl font-black text-gray-900 mt-1">{formatCurrency(paidAmount)} <span className="text-gray-300 text-sm">/ {formatCurrency(monthDebtsTotal)}</span></p>
-              )}
+          <div>
+            <div className="flex justify-between items-end mb-2">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dívidas (Parcelas/Abertas)</p>
+              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{progress.toFixed(0)}% Pago</span>
             </div>
-            <div className="text-right">
-              {isLoading ? (
-                <div className="h-6 w-12 bg-gray-100 rounded-full animate-pulse" />
-              ) : (
-                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{progress.toFixed(0)}%</span>
-              )}
-            </div>
+            {isLoading ? (
+              <div className="h-8 w-full bg-gray-100 rounded-lg animate-pulse" />
+            ) : (
+              <p className="text-xl font-black text-gray-900">{formatCurrency(monthDebtsRemaining)} <span className="text-gray-300 text-sm">pendente</span></p>
+            )}
           </div>
 
-          <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100 p-1">
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Assinaturas (Custo Fixo)</p>
             {isLoading ? (
-               <div className="h-full w-1/3 bg-gray-200 rounded-full animate-pulse" />
+              <div className="h-8 w-full bg-gray-100 rounded-lg animate-pulse" />
             ) : (
-              <div 
-                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 shadow-sm"
-                style={{ width: `${progress}%` }}
-              />
+              <p className="text-xl font-black text-gray-900">{formatCurrency(monthlyFixedCost)} <span className="text-gray-300 text-sm">este mês</span></p>
             )}
+          </div>
+
+          <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100 p-0.5">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 shadow-sm"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       </div>

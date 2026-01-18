@@ -53,7 +53,18 @@ export async function GET() {
     });
     const debtTotal = debts.reduce((acc, d) => acc + (d.totalAmount - d.paidAmount), 0);
 
-    // 5. Net Worth
+    // 5. Calcular Assinaturas Ativas (Custo Fixo)
+    const subscriptions = await prisma.recurringTransaction.findMany({
+      where: { userId, active: true }
+    });
+    const monthlyFixedCost = subscriptions.reduce((acc, s) => {
+      let amount = s.amount || 0;
+      if (s.frequency === 'WEEKLY') amount *= 4;
+      if (s.frequency === 'YEARLY') amount /= 12;
+      return acc + amount;
+    }, 0);
+
+    // 6. Net Worth
     const netWorth = liquidTotal + investmentTotal - debtTotal;
 
     return NextResponse.json({
@@ -62,8 +73,9 @@ export async function GET() {
       investmentGain,
       goalsProgress,
       debtTotal,
+      monthlyFixedCost,
       netWorth,
-      healthScore: calculateHealthScore(liquidTotal, debtTotal, investmentTotal)
+      healthScore: calculateHealthScore(liquidTotal, debtTotal + monthlyFixedCost, investmentTotal)
     });
   } catch (error) {
     console.error('Financial Health API Error:', error);

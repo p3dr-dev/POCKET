@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [investments, setInvestments] = useState<any[]>([]);
   const [debts, setDebts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [netWorthHistory, setNetWorthHistory] = useState<any[]>([]);
   const [healthData, setHealthData] = useState<any>(null);
   
@@ -53,14 +54,15 @@ export default function Dashboard() {
   const fetchData = async (search = '') => {
     setIsLoading(true);
     try {
-      const [txRes, accRes, invRes, debtRes, catRes, nwRes, healthRes] = await Promise.all([
+      const [txRes, accRes, invRes, debtRes, catRes, nwRes, healthRes, subRes] = await Promise.all([
         fetch(`/api/transactions?limit=500&search=${search}`),
         fetch('/api/accounts'),
         fetch('/api/investments'),
         fetch('/api/debts'),
         fetch('/api/categories'),
         fetch('/api/reports/net-worth'),
-        fetch('/api/reports/financial-health')
+        fetch('/api/reports/financial-health'),
+        fetch('/api/subscriptions')
       ]);
       const txData = await txRes.json();
       setTransactions(txData.transactions || []);
@@ -70,6 +72,7 @@ export default function Dashboard() {
       setCategories(await catRes.json());
       setNetWorthHistory(await nwRes.json());
       setHealthData(await healthRes.json());
+      setSubscriptions(await subRes.json());
     } finally { setIsLoading(false); }
   };
 
@@ -127,9 +130,17 @@ export default function Dashboard() {
     const monthDebtsTotal = monthDebts.reduce((acc, d) => acc + d.totalAmount, 0);
     const monthDebtsRemaining = monthDebts.reduce((acc, d) => acc + (d.totalAmount - d.paidAmount), 0);
 
+    const activeSubscriptions = Array.isArray(subscriptions) ? subscriptions.filter(s => s.active) : [];
+    const monthlyFixedCost = activeSubscriptions.reduce((acc, s) => {
+      let val = s.amount || 0;
+      if (s.frequency === 'WEEKLY') val *= 4;
+      if (s.frequency === 'YEARLY') val /= 12;
+      return acc + val;
+    }, 0);
+
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
-    const dailyGoal = monthDebtsRemaining / daysRemaining;
+    const dailyGoal = (monthDebtsRemaining + monthlyFixedCost) / daysRemaining;
 
     return {
       netWorth: accBalance + invTotal,
@@ -139,10 +150,11 @@ export default function Dashboard() {
       expenseChange: calcChange(periodExpenses, prevMonthExpenses),
       monthDebtsTotal,
       monthDebtsRemaining,
+      monthlyFixedCost,
       dailyGoal,
       liquid: accBalance
     };
-  }, [accounts, investments, debts, transactions, timeView]);
+  }, [accounts, investments, debts, transactions, subscriptions, timeView]);
 
   const handleManualAI = async () => {
     setIsAiLoading(true);
@@ -309,6 +321,7 @@ export default function Dashboard() {
               <FinancialPlanner 
                 monthDebtsTotal={stats.monthDebtsTotal} 
                 monthDebtsRemaining={stats.monthDebtsRemaining} 
+                monthlyFixedCost={stats.monthlyFixedCost}
                 dailyGoal={stats.dailyGoal} 
                 isLoading={isLoading}
               />
