@@ -174,6 +174,31 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-2xl border border-amber-100 hover:bg-amber-100 transition-colors group">
+                  <div>
+                    <h4 className="font-black text-sm text-amber-900">Resgatar Dados Órfãos</h4>
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Se seus dados sumiram, clique aqui para recuperá-los</p>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      if (!confirm('Isso vinculará TODOS os dados do sistema à sua conta atual. Usar apenas se seus dados sumiram.')) return;
+                      const tid = toast.loading('Vinculando dados...');
+                      try {
+                        const res = await fetch('/api/admin/claim-data', { method: 'POST' });
+                        if (res.ok) {
+                          toast.success('Dados recuperados!', { id: tid });
+                          window.location.reload();
+                        } else throw new Error();
+                      } catch {
+                        toast.error('Erro ao recuperar', { id: tid });
+                      }
+                    }}
+                    className="bg-amber-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-200"
+                  >
+                    Resgatar
+                  </button>
+                </div>
               </div>
             </section>
 
