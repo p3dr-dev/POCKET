@@ -35,20 +35,47 @@ export class TransactionService {
 
     // 3. Resolve Category
     let categoryId = inputCategoryId;
-    if (categoryId === 'YIELD_AUTO' || !categoryId) {
-      const catType = categoryId === 'YIELD_AUTO' ? 'INCOME' : (type || 'EXPENSE');
-      const categoryName = categoryId === 'YIELD_AUTO' ? 'Rendimentos' : 'Outros';
-      
+    
+    if (categoryId === 'YIELD_AUTO') {
+      const categoryName = 'Rendimentos';
       let category = await prisma.category.findUnique({
         where: { name_userId: { name: categoryName, userId } }
       });
-      
       if (!category) {
         category = await prisma.category.create({
-          data: { name: categoryName, type: catType, userId }
+          data: { name: categoryName, type: 'INCOME', userId }
         });
       }
       categoryId = category.id;
+    } 
+    else if (!categoryId) {
+      // SMART CATEGORIZATION: Look for previous transactions with similar descriptions
+      // Clean description for better matching
+      const cleanDesc = description.trim().split(' ')[0].toLowerCase(); // Match first word
+      
+      const lastSimilar = await prisma.transaction.findFirst({
+        where: { 
+          userId,
+          description: { contains: cleanDesc, mode: 'insensitive' }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { categoryId: true }
+      });
+
+      if (lastSimilar) {
+        categoryId = lastSimilar.categoryId;
+      } else {
+        const categoryName = 'Outros';
+        let category = await prisma.category.findUnique({
+          where: { name_userId: { name: categoryName, userId } }
+        });
+        if (!category) {
+          category = await prisma.category.create({
+            data: { name: categoryName, type: type || 'EXPENSE', userId }
+          });
+        }
+        categoryId = category.id;
+      }
     } else {
       const category = await prisma.category.findUnique({
         where: { id: categoryId, userId }

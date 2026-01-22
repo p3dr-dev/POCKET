@@ -27,18 +27,23 @@ export async function GET(req: Request) {
 
     // 2. Processar cada uma
     for (const sub of dueSubs) {
-      const nowIso = new Date().toISOString();
-      const externalId = `SUB-${sub.id}-${nowIso.split('T')[0]}`;
+      if (!sub.nextRun) continue;
+
+      // Usamos a data prevista da execução como data da transação, não o "agora"
+      // Isso garante que se o cron atrasar, o registro financeiro continue correto.
+      const scheduledDate = new Date(sub.nextRun);
+      const dateKey = scheduledDate.toISOString().split('T')[0];
+      const externalId = `RECURRING-${sub.id}-${dateKey}`;
       const absAmount = Math.abs(Number(sub.amount));
 
       try {
         await prisma.$transaction(async (tx) => {
-          // Criar transação
+          // 1. Criar a transação com a data agendada
           await tx.transaction.create({
             data: {
               description: sub.description,
               amount: absAmount,
-              date: new Date(),
+              date: scheduledDate, // Data original do vencimento
               type: sub.type as any,
               categoryId: sub.categoryId,
               accountId: sub.accountId,
@@ -47,14 +52,13 @@ export async function GET(req: Request) {
             }
           });
 
-          // Calcular próxima data
-          if (!sub.nextRun) throw new Error('Próxima execução não definida');
-          
-          const nextDate = new Date(sub.nextRun);
+          // 2. Calcular próxima data de execução de forma robusta
+          const nextDate = new Date(scheduledDate);
           if (sub.frequency === 'MONTHLY') {
-            const currentMonth = nextDate.getMonth();
-            nextDate.setMonth(currentMonth + 1);
-            if (nextDate.getMonth() > (currentMonth + 1) % 12) {
+            const expectedMonth = (nextDate.getMonth() + 1) % 12;
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            // Se o dia do mês "pulou" (ex: de 31/jan para 02/mar), retrocede para o último dia do mês correto
+            if (nextDate.getMonth() !== expectedMonth) {
               nextDate.setDate(0);
             }
           } else if (sub.frequency === 'WEEKLY') {
@@ -63,17 +67,34 @@ export async function GET(req: Request) {
             nextDate.setFullYear(nextDate.getFullYear() + 1);
           }
 
-          // Atualizar assinatura
+          // 3. Atualizar assinatura para a próxima data
           await tx.recurringTransaction.update({
             where: { id: sub.id },
             data: { nextRun: nextDate }
           });
         });
 
-        results.push(`Processed: ${sub.description}`);
+        results.push(`Processed: ${sub.description} for ${dateKey}`);
       } catch (e: any) {
-        if (e.message?.includes('Unique constraint')) {
-           results.push(`Skipped (Duplicate): ${sub.description}`);
+        // P2002 é erro de Unique Constraint no Prisma (Deduplicação)
+        if (e.code === 'P2002' || e.message?.includes('Unique constraint')) {
+           results.push(`Skipped (Already Processed): ${sub.description} for ${dateKey}`);
+           
+           // Mesmo que já tenha sido processado, precisamos avançar a data da assinatura
+           // para que ela não fique "presa" no passado infinitamente tentando rodar
+           const nextDate = new Date(scheduledDate);
+           if (sub.frequency === 'MONTHLY') {
+             nextDate.setMonth(nextDate.getMonth() + 1);
+           } else if (sub.frequency === 'WEEKLY') {
+             nextDate.setDate(nextDate.getDate() + 7);
+           } else if (sub.frequency === 'YEARLY') {
+             nextDate.setFullYear(nextDate.getFullYear() + 1);
+           }
+
+           await prisma.recurringTransaction.update({
+             where: { id: sub.id },
+             data: { nextRun: nextDate }
+           });
         } else {
            results.push(`Error: ${sub.description} - ${e.message}`);
         }
