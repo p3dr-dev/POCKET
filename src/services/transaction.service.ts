@@ -9,10 +9,10 @@ interface CreateTransactionDTO {
   date: string; // ISO String or "YYYY-MM-DD"
   accountId: string;
   categoryId?: string;
-  payee?: string;
-  payer?: string;
-  bankRefId?: string;
-  externalId?: string;
+  payee?: string | null;
+  payer?: string | null;
+  bankRefId?: string | null;
+  externalId?: string | null;
 }
 
 export class TransactionService {

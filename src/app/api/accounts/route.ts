@@ -59,40 +59,53 @@ export async function GET(request: Request) {
   }
 }
 
+import { accountSchema } from '@/lib/validations';
+
+// ... (GET method remains the same)
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const userId = session.user.id;
 
     const body = await request.json();
-    const userId = session.user.id;
+
+    // 1. Validação com Zod
+    const validation = accountSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({
+        message: 'Dados inválidos',
+        errors: validation.error.format()
+      }, { status: 400 });
+    }
+
+    const data = validation.data;
     
-    // Validar se o usuário existe no banco para evitar P2003
+    // 2. Validar se o usuário existe no banco para evitar P2003
     const userExists = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true }
     });
 
     if (!userExists) {
-      return NextResponse.json({ 
-        message: 'Sessão inválida ou usuário não encontrado. Por favor, saia (Logout) e entre novamente no sistema.' 
+      return NextResponse.json({
+        message: 'Sessão inválida ou usuário não encontrado. Por favor, saia (Logout) e entre novamente no sistema.'
       }, { status: 403 });
     }
-
-    console.log('Attempting to create account for userId:', userId);
 
     const account = await prisma.$transaction(async (tx) => {
       const acc = await tx.account.create({
         data: {
-          name: body.name,
-          type: body.type,
-          color: body.color || '#000000',
+          name: data.name,
+          type: data.type,
+          color: data.color || '#000000',
           userId
         }
       });
 
-      if (body.initialBalance && Number(body.initialBalance) !== 0) {
-        const amount = Number(body.initialBalance);
+      if (data.initialBalance && Number(data.initialBalance) !== 0) {
+        const amount = Number(data.initialBalance);
         const type = amount > 0 ? 'INCOME' : 'EXPENSE';
         const categoryName = 'Ajuste de Saldo';
 
@@ -129,8 +142,8 @@ export async function POST(request: Request) {
     return NextResponse.json(account, { status: 201 });
   } catch (error: any) {
     console.error('Account Create Error:', error);
-    return NextResponse.json({ 
-      message: 'Erro ao criar conta', 
+    return NextResponse.json({
+      message: 'Erro ao criar conta',
       details: error.message
     }, { status: 500 });
   }

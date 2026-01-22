@@ -61,6 +61,8 @@ export async function GET(request: Request) {
   }
 }
 
+import { transactionSchema } from '@/lib/validations';
+
 // ... (GET method remains the same)
 
 export async function POST(request: Request) {
@@ -71,14 +73,21 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     
-    if (!body.description || !body.amount || !body.accountId) {
-      return NextResponse.json({ message: 'Descrição, valor e conta são obrigatórios' }, { status: 400 });
+    // 1. Validação com Zod
+    const validation = transactionSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ 
+        message: 'Dados inválidos', 
+        errors: validation.error.format() 
+      }, { status: 400 });
     }
+
+    const data = validation.data;
 
     try {
       const transaction = await TransactionService.create({
         userId,
-        ...body
+        ...data
       });
       return NextResponse.json(transaction, { status: 201 });
     } catch (err: any) {

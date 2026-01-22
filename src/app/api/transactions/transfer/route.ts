@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 import crypto from 'crypto';
 
+import { transferSchema } from '@/lib/validations';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
@@ -11,6 +13,16 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const body = await request.json();
+
+    // 1. Validação com Zod
+    const validation = transferSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ 
+        message: 'Dados inválidos', 
+        errors: validation.error.format() 
+      }, { status: 400 });
+    }
+
     const { 
       fromAccountId, 
       toAccountId, 
@@ -21,11 +33,7 @@ export async function POST(request: Request) {
       payer,
       bankRefId,
       externalId 
-    } = body;
-
-    if (!fromAccountId || !toAccountId || !amount) {
-      return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 });
-    }
+    } = validation.data;
 
     const userId = session.user.id;
 
