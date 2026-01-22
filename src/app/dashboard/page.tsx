@@ -113,16 +113,17 @@ export default function Dashboard() {
     const invTotal = Array.isArray(investments) ? investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0) : 0;
 
     const periodTxs = Array.isArray(transactions) ? transactions.filter(t => new Date(t.date) >= filterDate) : [];
-    const periodIncomes = periodTxs.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
-    const periodExpenses = periodTxs.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
+    // Exclude transfers (t.transferId) from Income/Expense totals
+    const periodIncomes = periodTxs.filter(t => t.type === 'INCOME' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
+    const periodExpenses = periodTxs.filter(t => t.type === 'EXPENSE' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
 
     // Comparison with Previous Month
     const prevMonthTxs = Array.isArray(transactions) ? transactions.filter(t => {
       const d = new Date(t.date);
       return d >= startOfPrevMonth && d <= endOfPrevMonth;
     }) : [];
-    const prevMonthIncomes = prevMonthTxs.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
-    const prevMonthExpenses = prevMonthTxs.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
+    const prevMonthIncomes = prevMonthTxs.filter(t => t.type === 'INCOME' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
+    const prevMonthExpenses = prevMonthTxs.filter(t => t.type === 'EXPENSE' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
 
     const calcChange = (current: number, prev: number) => {
       if (prev === 0) {

@@ -7,6 +7,7 @@ interface Transaction {
   type: 'INCOME' | 'EXPENSE';
   category: { name: string, color?: string };
   date: string;
+  transferId?: string;
 }
 
 export default function CategoryBreakdown({ transactions, isLoading = false }: { transactions: Transaction[], isLoading?: boolean }) {
@@ -19,7 +20,8 @@ export default function CategoryBreakdown({ transactions, isLoading = false }: {
 
     const filtered = transactions.filter(t => {
       const d = new Date(t.date);
-      return t.type === view && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      // Exclude transfers
+      return !t.transferId && t.type === view && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
     const total = filtered.reduce((acc, t) => acc + t.amount, 0);

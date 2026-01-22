@@ -6,6 +6,7 @@ interface Transaction {
   amount: number;
   type: 'INCOME' | 'EXPENSE';
   date: string;
+  transferId?: string;
 }
 
 export default function DailyExpensesWidget({ transactions }: { transactions: Transaction[] }) {
@@ -17,7 +18,8 @@ export default function DailyExpensesWidget({ transactions }: { transactions: Tr
 
     const expenses = transactions.filter(t => {
       const d = new Date(t.date);
-      return t.type === 'EXPENSE' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      // Exclude transfers
+      return !t.transferId && t.type === 'EXPENSE' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
     // 2. Agrupar por dia
