@@ -22,33 +22,49 @@ interface FinancialPlannerProps {
 
 
 
+import Skeleton from '../Skeleton';
+
 export default function FinancialPlanner({ 
-
   monthDebtsTotal, 
-
   monthDebtsRemaining, 
-
   monthlyFixedCost,
-
   monthlyGoalTarget,
-
   dailyGoal,
-
   revenueGap = 0,
-
   isSacrificingGoals = false,
-
   isLoading = false 
-
 }: FinancialPlannerProps) {
-
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
   
-
   const paidAmount = monthDebtsTotal - monthDebtsRemaining;
-
   const progress = monthDebtsTotal > 0 ? (paidAmount / monthDebtsTotal) * 100 : 0;
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 flex flex-col h-full justify-between">
+        <div>
+          <div className="flex justify-between items-start mb-6">
+            <Skeleton className="h-4 w-32" variant="text" />
+            <Skeleton className="h-4 w-20" variant="text" />
+          </div>
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-20" variant="text" />
+                  <Skeleton className="h-3 w-12" variant="text" />
+                </div>
+                <Skeleton className="h-1.5 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-8 pt-6 border-t border-gray-50">
+          <Skeleton className="h-16 w-full rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
 
 

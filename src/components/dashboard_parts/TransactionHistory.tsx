@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import Skeleton from '../Skeleton';
 
 interface Transaction {
   id: string;
@@ -98,15 +99,15 @@ export default function TransactionHistory({
           <div className="space-y-4">
              {[...Array(5)].map((_, i) => (
                <div key={i} className="flex items-center gap-4 p-4 rounded-[2rem] border border-gray-50">
-                 <div className="w-12 h-12 rounded-2xl bg-gray-100 animate-pulse" />
+                 <Skeleton className="w-12 h-12 rounded-2xl" />
                  <div className="flex-1 space-y-2">
-                   <div className="h-4 w-1/3 bg-gray-100 rounded animate-pulse" />
+                   <Skeleton className="h-4 w-1/3" variant="text" />
                    <div className="flex gap-2">
-                     <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
-                     <div className="h-3 w-16 bg-gray-50 rounded animate-pulse" />
+                     <Skeleton className="h-3 w-16" variant="text" />
+                     <Skeleton className="h-3 w-16" variant="text" />
                    </div>
                  </div>
-                 <div className="h-5 w-20 bg-gray-100 rounded animate-pulse" />
+                 <Skeleton className="h-5 w-20" variant="text" />
                </div>
              ))}
           </div>

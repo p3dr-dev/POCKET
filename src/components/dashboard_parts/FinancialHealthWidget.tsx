@@ -1,5 +1,7 @@
 'use client';
 
+import Skeleton from '../Skeleton';
+
 interface HealthData {
   liquidTotal: number;
   investmentTotal: number;
@@ -15,12 +17,24 @@ export default function FinancialHealthWidget({ data, isLoading }: { data: Healt
 
   if (isLoading) {
     return (
-      <div className="bg-black text-white rounded-[2.5rem] p-8 shadow-2xl animate-pulse">
-        <div className="h-4 w-32 bg-white/10 rounded mb-6" />
-        <div className="h-12 w-48 bg-white/20 rounded mb-8" />
-        <div className="grid grid-cols-2 gap-4">
-           <div className="h-16 bg-white/5 rounded-2xl" />
-           <div className="h-16 bg-white/5 rounded-2xl" />
+      <div className="bg-black text-white rounded-[2.5rem] p-8 shadow-2xl">
+        <div className="flex justify-between items-start mb-6">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20 bg-white/10" variant="text" />
+            <div className="flex items-baseline gap-2">
+              <Skeleton className="h-10 w-16 bg-white/20" />
+              <Skeleton className="h-4 w-8 bg-white/10" variant="text" />
+            </div>
+          </div>
+          <Skeleton className="w-12 h-12 bg-white/5 rounded-2xl" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-8">
+           <Skeleton className="h-20 bg-white/5 rounded-2xl" />
+           <Skeleton className="h-20 bg-white/5 rounded-2xl" />
+        </div>
+        <div className="space-y-3">
+           <Skeleton className="h-3 w-full bg-white/5" variant="text" />
+           <Skeleton className="h-3 w-full bg-white/5" variant="text" />
         </div>
       </div>
     );

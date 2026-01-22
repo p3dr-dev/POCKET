@@ -1,6 +1,7 @@
 'use client';
 
 import { formatCurrency } from '@/lib/utils';
+import Skeleton from './Skeleton';
 
 interface SummaryCardProps {
   title: string;
@@ -45,7 +46,7 @@ export default function SummaryCard({ title, value, type, change, isLoading = fa
         <div className="text-right flex flex-col items-end">
           <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{title}</span>
           {isLoading ? (
-             <div className="h-4 w-12 bg-gray-100 rounded-full animate-pulse mt-1" />
+             <Skeleton className="h-4 w-12 mt-1" variant="text" />
           ) : change !== undefined && (
             <div className={`flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
               isGoodTrend ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'
@@ -59,8 +60,8 @@ export default function SummaryCard({ title, value, type, change, isLoading = fa
       <div className="flex flex-col relative z-10">
         {isLoading ? (
            <div className="space-y-2">
-             <div className="h-8 w-32 bg-gray-100 rounded-lg animate-pulse" />
-             <div className="h-3 w-20 bg-gray-50 rounded-md animate-pulse" />
+             <Skeleton className="h-8 w-32" />
+             <Skeleton className="h-3 w-20" variant="text" />
            </div>
         ) : (
           <>
