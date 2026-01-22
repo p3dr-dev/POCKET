@@ -14,36 +14,26 @@ import BudgetOverview from '@/components/dashboard_parts/BudgetOverview';
 import NetWorthChart from '@/components/dashboard_parts/NetWorthChart';
 import FinancialHealthWidget from '@/components/dashboard_parts/FinancialHealthWidget';
 import toast from 'react-hot-toast';
-
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  type: 'INCOME' | 'EXPENSE';
-  date: string;
-  categoryId: string;
-  category: { name: string };
-  accountId: string;
-  account: { name: string };
-  bankRefId?: string;
-  transferId?: string;
-}
+import { useDashboardData, Transaction } from '@/hooks/useDashboardData';
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [investments, setInvestments] = useState<any[]>([]);
-  const [debts, setDebts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [netWorthHistory, setNetWorthHistory] = useState<any[]>([]);
-  const [healthData, setHealthData] = useState<any>(null);
+  const {
+    transactions,
+    accounts,
+    investments,
+    categories,
+    netWorthHistory,
+    healthData,
+    isLoading,
+    fetchData,
+    getStats,
+    combinedCommitments
+  } = useDashboardData();
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeView, setTimeView] = useState<'DAY' | 'WEEK' | 'MONTH'>('MONTH');
   
@@ -51,193 +41,18 @@ export default function Dashboard() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const fetchData = async (search = '') => {
-    setIsLoading(true);
-    try {
-      // Fase 1: Dados Vitais (Rápido)
-      const [txRes, accRes, invRes, debtRes, catRes, subRes] = await Promise.all([
-        fetch(`/api/transactions?limit=500&search=${search}`),
-        fetch('/api/accounts'),
-        fetch('/api/investments'),
-        fetch('/api/debts'),
-        fetch('/api/categories'),
-        fetch('/api/subscriptions')
-      ]);
-      
-      const txData = await txRes.json();
-      setTransactions(txData.transactions || []);
-      setAccounts(await accRes.json());
-      setInvestments(await invRes.json());
-      setDebts(await debtRes.json());
-      setCategories(await catRes.json());
-      setSubscriptions(await subRes.json());
-
-      // Fase 2: Relatórios Pesados (Analytics)
-      const [nwRes, healthRes] = await Promise.all([
-        fetch('/api/reports/net-worth'),
-        fetch('/api/reports/financial-health')
-      ]);
-      
-      setNetWorthHistory(await nwRes.json());
-      setHealthData(await healthRes.json());
-
-    } catch (err) {
-      console.error('Fetch Error:', err);
-      toast.error('Erro de conexão com o servidor');
-    } finally { setIsLoading(false); }
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchData(searchQuery);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fetchData]);
 
-  const stats = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-
-    const filterDate = timeView === 'DAY' ? startOfDay : timeView === 'WEEK' ? startOfWeek : startOfMonth;
-
-    // Accounts balance
-    const accBalance = Array.isArray(accounts) ? accounts.reduce((acc, a) => {
-      return acc + (a.balance || 0);
-    }, 0) : 0;
-
-    const invTotal = Array.isArray(investments) ? investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0) : 0;
-
-    const periodTxs = Array.isArray(transactions) ? transactions.filter(t => new Date(t.date) >= filterDate) : [];
-    // Exclude transfers (t.transferId) from Income/Expense totals
-    const periodIncomes = periodTxs.filter(t => t.type === 'INCOME' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
-    const periodExpenses = periodTxs.filter(t => t.type === 'EXPENSE' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
-
-    // Comparison with Previous Month
-    const prevMonthTxs = Array.isArray(transactions) ? transactions.filter(t => {
-      const d = new Date(t.date);
-      return d >= startOfPrevMonth && d <= endOfPrevMonth;
-    }) : [];
-    const prevMonthIncomes = prevMonthTxs.filter(t => t.type === 'INCOME' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
-    const prevMonthExpenses = prevMonthTxs.filter(t => t.type === 'EXPENSE' && !t.transferId).reduce((acc, t) => acc + t.amount, 0);
-
-    const calcChange = (current: number, prev: number) => {
-      if (prev === 0) {
-        if (current === 0) return 0;
-        return current > 0 ? 100 : -100;
-      }
-      return ((current - prev) / prev) * 100;
-    };
-
-    const monthDebts = Array.isArray(debts) ? debts.filter(d => {
-      if (!d.dueDate) return false;
-      const dDate = new Date(d.dueDate);
-      const isPaid = (d.totalAmount - d.paidAmount) <= 0.01;
-      return !isPaid && ((dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear()) || (dDate < now));
-    }) : [];
-    
-    const monthDebtsTotal = monthDebts.reduce((acc, d) => acc + d.totalAmount, 0);
-    const monthDebtsRemaining = monthDebts.reduce((acc, d) => acc + Math.max(0, d.totalAmount - d.paidAmount), 0);
-
-    const activeSubscriptions = Array.isArray(subscriptions) ? subscriptions.filter(s => s.active) : [];
-    const monthlyFixedCost = activeSubscriptions
-      .filter(s => s.type === 'EXPENSE')
-      .reduce((acc, s) => {
-        let val = s.amount || 0;
-        if (s.frequency === 'WEEKLY') val *= 4;
-        if (s.frequency === 'YEARLY') val /= 12;
-        return acc + val;
-      }, 0);
-
-    const pendingIncomes = activeSubscriptions
-      .filter(s => s.type === 'INCOME')
-      .reduce((acc, s) => {
-        let val = s.amount || 0;
-        if (s.frequency === 'WEEKLY') val *= 4;
-        if (s.frequency === 'YEARLY') val /= 12;
-        return acc + val;
-      }, 0);
-
-    const goalTarget = healthData?.monthlyGoalTarget || 0;
-
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
-    
-    // CÁLCULO MULTICAMADA:
-    const totalCommitments = monthDebtsRemaining + monthlyFixedCost;
-    
-    // 1. Limite de Sobrevivência (Saldo + Ganhos - Dívidas - Fixos)
-    const survivalLimit = (accBalance + pendingIncomes - totalCommitments) / daysRemaining;
-    
-    // 2. Limite Ideal (Sobrevivência - Metas)
-    const idealLimit = survivalLimit - (goalTarget / daysRemaining);
-
-    // Se o ideal for negativo, focamos no survival mas avisamos
-    const dailyGoal = idealLimit < 0 ? survivalLimit : idealLimit;
-    const isSacrificingGoals = idealLimit < 0 && survivalLimit > 0;
-
-    return {
-      netWorth: accBalance + invTotal,
-      periodIncomes,
-      periodExpenses,
-      incomeChange: calcChange(periodIncomes, prevMonthIncomes),
-      expenseChange: calcChange(periodExpenses, prevMonthExpenses),
-      monthDebtsTotal,
-      monthDebtsRemaining,
-      monthlyFixedCost,
-      totalCommitments,
-      dailyGoal,
-      idealLimit,
-      isSacrificingGoals,
-      revenueGap: healthData?.revenueGap || 0,
-      liquid: accBalance
-    };
-  }, [accounts, investments, debts, transactions, subscriptions, healthData, timeView]);
-
-  const combinedCommitments = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    // 1. Filtrar dívidas que vencem este mês ou estão atrasadas
-    const debtsList = Array.isArray(debts) ? debts
-      .filter(d => {
-        if (!d.dueDate) return true; // Dívidas sem data sempre aparecem como pendentes
-        const dDate = new Date(d.dueDate);
-        const isPaid = (d.totalAmount - d.paidAmount) <= 0.01;
-        return !isPaid && ((dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear) || (dDate < now));
-      })
-      .map(d => ({ 
-        ...d, 
-        type: 'DEBT' as const 
-      })) : [];
-
-    // 2. Filtrar assinaturas ativas (custo fixo)
-    const subsList = Array.isArray(subscriptions) ? subscriptions
-      .filter(s => s.active)
-      .map(s => ({
-        id: s.id,
-        description: s.description,
-        totalAmount: s.amount || 0,
-        paidAmount: 0, // Assinaturas são recorrentes, cada mês é um novo ciclo
-        dueDate: s.nextRun || new Date(currentYear, currentMonth, 28).toISOString(), // Fallback p/ fim do mês se sem data
-        type: 'SUBSCRIPTION' as const
-      })) : [];
-
-    return [...debtsList, ...subsList].sort((a, b) => {
-      if (!a.dueDate || !b.dueDate) return 0;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-    });
-  }, [debts, subscriptions]);
+  const stats = useMemo(() => getStats(timeView), [getStats, timeView]);
 
   const handleManualAI = async () => {
     setIsAiLoading(true);
     try {
-      // Calcular breakdown localmente para enviar à IA
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -263,7 +78,6 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...stats, 
-          investmentTotal: investments.reduce((acc, i) => acc + (i.currentValue || i.amount), 0),
           topCategories 
         }),
       });
@@ -278,7 +92,6 @@ export default function Dashboard() {
   const handleDeleteBulk = async () => {
     if (selectedIds.length === 0) return;
     if (!confirm(`Excluir ${selectedIds.length} transações?`)) return;
-    setIsLoading(true);
     try {
       const res = await fetch('/api/transactions/bulk', {
         method: 'POST',
@@ -290,7 +103,9 @@ export default function Dashboard() {
         setSelectedIds([]);
         await fetchData();
       }
-    } finally { setIsLoading(false); }
+    } catch {
+      toast.error('Erro ao excluir');
+    }
   };
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -327,7 +142,7 @@ export default function Dashboard() {
         <div className="flex-1 overflow-y-auto px-4 md:px-8 xl:px-12 py-8 custom-scrollbar">
           <div className="max-w-screen-2xl mx-auto space-y-10 pb-20">
             
-            {/* Onboarding Wizard (Only visible if no transactions & not loading) */}
+            {/* Onboarding Wizard */}
             {!isLoading && transactions.length === 0 && (
               <div className="bg-black text-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl animate-in slide-in-from-top-4 relative overflow-hidden">
                 <div className="relative z-10 max-w-2xl">
@@ -349,7 +164,6 @@ export default function Dashboard() {
                       </button>
                    </div>
                 </div>
-                {/* Decorative Pattern */}
                 <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                       <path d="M0 100 C 20 0 50 0 100 100 Z" fill="url(#grad-onboarding)" />
