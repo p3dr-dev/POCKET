@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import BaseModal from './BaseModal';
 
 interface Category { id: string; name: string; type: 'INCOME' | 'EXPENSE'; }
 interface Account { id: string; name: string; }
@@ -134,124 +135,112 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess, subscrip
     setCategoryId('');
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-      
-      <div className="relative bg-white w-full max-w-lg overflow-hidden rounded-[2.5rem] shadow-2xl transform animate-in zoom-in-95 duration-300">
-        <div className="p-8 pb-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-              {subscription ? 'Editar Assinatura' : 'Nova Assinatura'}
-            </h2>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Configure um lançamento recorrente</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={subscription ? 'Editar Assinatura' : 'Nova Assinatura'}
+      subtitle="Configure um lançamento recorrente"
+      maxWidth="max-w-lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-1">
+          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>
+          <input required value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" placeholder="Ex: Netflix, Aluguel, Academia..." />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 pt-4 space-y-5">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Descrição</label>
-            <input required value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" placeholder="Ex: Netflix, Aluguel, Academia..." />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor</label>
-                <button type="button" onClick={() => setIsVariableAmount(!isVariableAmount)} className={`text-[8px] font-black uppercase px-2 py-0.5 rounded transition-all ${isVariableAmount ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
-                  {isVariableAmount ? 'Variável ✓' : 'Variável?'}
-                </button>
-              </div>
-              {!isVariableAmount ? (
-                <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="0,00" />
-              ) : (
-                <div className="w-full bg-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 italic">Valor definido no lançamento</div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Frequência</label>
-              <select value={frequency} onChange={e => setFrequency(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
-                <option value="WEEKLY">Semanal</option>
-                <option value="MONTHLY">Mensal</option>
-                <option value="YEARLY">Anual</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
-              <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
-                <option value="EXPENSE">Despesa</option>
-                <option value="INCOME">Receita</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Próximo Lançamento</label>
-                <button type="button" onClick={() => setIsVariableDate(!isVariableDate)} className={`text-[8px] font-black uppercase px-2 py-0.5 rounded transition-all ${isVariableDate ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
-                  {isVariableDate ? 'Sem Data ✓' : 'Sem Data?'}
-                </button>
-              </div>
-              {!isVariableDate ? (
-                <input required type="date" value={nextRun} onChange={e => setNextRun(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
-              ) : (
-                <div className="w-full bg-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 italic">Lançamento manual</div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Categoria</label>
-              <select required value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
-                <option value="">Selecione...</option>
-                {categories.filter(c => c.type === type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Conta de Débito</label>
-              <select required value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
-                <option value="">Selecione...</option>
-                {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="pt-4 flex flex-col gap-3">
-            <button 
-              type="submit"
-              disabled={isLoading} 
-              className="w-full py-5 bg-black text-white rounded-[1.5rem] text-sm font-black transition-all hover:bg-gray-800 disabled:opacity-50 active:scale-95 shadow-xl shadow-black/10 flex items-center justify-center gap-3"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-3 border-white/20 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                  <span>{subscription ? 'Salvar Alterações' : 'Salvar Assinatura'}</span>
-                </>
-              )}
-            </button>
-            
-            {subscription && (
-              <button 
-                type="button"
-                onClick={handleDelete}
-                disabled={isLoading}
-                className="w-full py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
-              >
-                Excluir Assinatura
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor</label>
+              <button type="button" onClick={() => setIsVariableAmount(!isVariableAmount)} className={`text-[8px] font-black uppercase px-2 py-0.5 rounded transition-all ${isVariableAmount ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
+                {isVariableAmount ? 'Variável ✓' : 'Variável?'}
               </button>
+            </div>
+            {!isVariableAmount ? (
+              <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-black outline-none transition-all" placeholder="0,00" />
+            ) : (
+              <div className="w-full bg-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 italic">Valor definido no lançamento</div>
             )}
           </div>
-        </form>
-      </div>
-    </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Frequência</label>
+            <select value={frequency} onChange={e => setFrequency(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+              <option value="WEEKLY">Semanal</option>
+              <option value="MONTHLY">Mensal</option>
+              <option value="YEARLY">Anual</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
+            <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+              <option value="EXPENSE">Despesa</option>
+              <option value="INCOME">Receita</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Próximo Lançamento</label>
+              <button type="button" onClick={() => setIsVariableDate(!isVariableDate)} className={`text-[8px] font-black uppercase px-2 py-0.5 rounded transition-all ${isVariableDate ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
+                {isVariableDate ? 'Sem Data ✓' : 'Sem Data?'}
+              </button>
+            </div>
+            {!isVariableDate ? (
+              <input required type="date" value={nextRun} onChange={e => setNextRun(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all" />
+            ) : (
+              <div className="w-full bg-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 italic">Lançamento manual</div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Categoria</label>
+            <select required value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+              <option value="">Selecione...</option>
+              {categories.filter(c => c.type === type).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Conta de Débito</label>
+            <select required value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl p-4 text-sm font-bold outline-none transition-all appearance-none">
+              <option value="">Selecione...</option>
+              {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="pt-4 flex flex-col gap-3">
+          <button 
+            type="submit"
+            disabled={isLoading} 
+            className="w-full py-5 bg-black text-white rounded-[1.5rem] text-sm font-black transition-all hover:bg-gray-800 disabled:opacity-50 active:scale-95 shadow-xl shadow-black/10 flex items-center justify-center gap-3"
+          >
+            {isLoading ? (
+              <div className="w-5 h-5 border-3 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                <span>{subscription ? 'Salvar Alterações' : 'Salvar Assinatura'}</span>
+              </>
+            )}
+          </button>
+          
+          {subscription && (
+            <button 
+              type="button"
+              onClick={handleDelete}
+              disabled={isLoading}
+              className="w-full py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
+            >
+              Excluir Assinatura
+            </button>
+          )}
+        </div>
+      </form>
+    </BaseModal>
   );
 }
