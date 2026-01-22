@@ -11,6 +11,7 @@
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:health": "npx tsx scripts/check-db-health.ts",
     "db:reset-migrate": "npx prisma migrate reset --force && npx prisma migrate dev --name init --skip-seed",
     "db:vercel-deploy": "npx prisma migrate deploy && npm run db:seed"
   },
