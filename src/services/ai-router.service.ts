@@ -101,24 +101,84 @@ export class AIRouterService {
   }
 
   private static async handleQuery(userId: string, input: string): Promise<AIActionResponse> {
-    // Implementação simplificada: Passar para a IA responder com base em um resumo
-    // Em produção, isso faria queries SQL reais. Por enquanto, vamos dar o contexto do mês.
-    
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const transactions = await prisma.transaction.findMany({
-      where: { userId, date: { gte: startOfMonth } },
-      select: { description: true, amount: true, type: true, category: { select: { name: true } } }
+    // 1. Buscas Paralelas Eficientes (Agregações)
+    const [balanceAgg, expenseAgg, incomeAgg, categoryAgg, recentTxs] = await Promise.all([
+      // Saldo Geral (Income - Expense)
+      prisma.transaction.groupBy({
+        by: ['type'],
+        where: { userId },
+        _sum: { amount: true }
+      }),
+      // Gastos do Mês
+      prisma.transaction.aggregate({
+        where: { userId, type: 'EXPENSE', date: { gte: startOfMonth } },
+        _sum: { amount: true }
+      }),
+      // Ganhos do Mês
+      prisma.transaction.aggregate({
+        where: { userId, type: 'INCOME', date: { gte: startOfMonth } },
+        _sum: { amount: true }
+      }),
+      // Top 5 Categorias do Mês
+      prisma.transaction.groupBy({
+        by: ['categoryId'],
+        where: { userId, type: 'EXPENSE', date: { gte: startOfMonth } },
+        _sum: { amount: true },
+        orderBy: { _sum: { amount: 'desc' } },
+        take: 5
+      }),
+      // Últimas 5 transações para contexto recente
+      prisma.transaction.findMany({
+        where: { userId },
+        orderBy: { date: 'desc' },
+        take: 5,
+        select: { description: true, amount: true, date: true, type: true }
+      })
+    ]);
+
+    // 2. Resolver nomes das categorias
+    const categoryIds = categoryAgg.map(c => c.categoryId);
+    const categories = await prisma.category.findMany({
+      where: { id: { in: categoryIds } },
+      select: { id: true, name: true }
     });
 
-    const context = JSON.stringify(transactions);
+    // 3. Montar Sumário para a IA
+    const totalIncome = balanceAgg.find(b => b.type === 'INCOME')?._sum.amount || 0;
+    const totalExpense = balanceAgg.find(b => b.type === 'EXPENSE')?._sum.amount || 0;
+    const currentBalance = totalIncome - totalExpense;
+    
+    const monthExpense = expenseAgg._sum.amount || 0;
+    const monthIncome = incomeAgg._sum.amount || 0;
+
+    const topCategories = categoryAgg.map(c => {
+      const name = categories.find(cat => cat.id === c.categoryId)?.name || 'Outros';
+      return `${name}: R$ ${c._sum.amount?.toFixed(2)}`;
+    }).join(', ');
+
+    const context = JSON.stringify({
+      current_balance: currentBalance.toFixed(2),
+      month_stats: {
+        income: monthIncome.toFixed(2),
+        expense: monthExpense.toFixed(2),
+        balance: (monthIncome - monthExpense).toFixed(2)
+      },
+      top_expenses_this_month: topCategories,
+      recent_activity: recentTxs.map(t => `${t.description} (${t.amount})`).join(', ')
+    });
+
     const answer = await askAI(
-      `Com base nestes dados do mês atual (JSON): ${context}. Responda à pergunta do usuário: "${input}". Seja breve.`,
-      "Você é um analista financeiro."
+      `Dados Financeiros (Sumário): ${context}.
+       Pergunta do usuário: "${input}".
+       
+       Responda de forma direta, analítica e amigável. Use formatação Markdown.`,
+      "Você é um CFO pessoal (Chief Financial Officer). Seja conciso."
     );
 
-    return { type: 'DATA_QUERY', message: answer || 'Sem resposta.' };
+    return { type: 'DATA_QUERY', message: answer || 'Não consegui analisar seus dados no momento.' };
   }
 
   private static async handleAdvice(userId: string, input: string): Promise<AIActionResponse> {
