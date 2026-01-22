@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
-import crypto from 'crypto';
+import { TransactionService } from '@/services/transaction.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +61,8 @@ export async function GET(request: Request) {
   }
 }
 
+// ... (GET method remains the same)
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -73,74 +75,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Descrição, valor e conta são obrigatórios' }, { status: 400 });
     }
 
-    // Normalização de Data p/ evitar erro de Timezone (Forçar Meio-dia UTC)
-    const rawDate = body.date.split('T')[0];
-    const txDate = new Date(`${rawDate}T12:00:00.000Z`);
-
-    // Validar propriedade da conta
-    const account = await prisma.account.findUnique({
-      where: { id: body.accountId, userId }
-    });
-    
-    if (!account) {
-      return NextResponse.json({ message: 'Conta inválida ou não encontrada' }, { status: 403 });
-    }
-
-    let categoryId = body.categoryId;
-
-    // Resolução de categoria automática
-    if (categoryId === 'YIELD_AUTO' || !categoryId) {
-      const type = categoryId === 'YIELD_AUTO' ? 'INCOME' : (body.type || 'EXPENSE');
-      const categoryName = categoryId === 'YIELD_AUTO' ? 'Rendimentos' : 'Outros';
-      
-      let category = await prisma.category.findUnique({
-        where: { name_userId: { name: categoryName, userId } }
-      });
-      
-      if (!category) {
-        category = await prisma.category.create({
-          data: { name: categoryName, type, userId }
-        });
-      }
-      categoryId = category.id;
-    } else {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId, userId }
-      });
-      if (!category) {
-        return NextResponse.json({ message: 'Categoria inválida ou não encontrada' }, { status: 403 });
-      }
-    }
-
-    const amountVal = Math.abs(Number(body.amount)).toFixed(2);
-    const fingerprintBase = `${txDate.toISOString().split('T')[0]}|${body.description.toLowerCase().trim()}|${amountVal}|${body.accountId}`;
-    const generatedExternalId = body.externalId || crypto.createHash('md5').update(fingerprintBase).digest('hex');
-
-    const existing = await prisma.transaction.findUnique({
-      where: { externalId_accountId: { externalId: generatedExternalId, accountId: body.accountId } }
-    });
-    
-    if (existing) {
-      return NextResponse.json({ message: 'Esta transação já foi registrada anteriormente.' }, { status: 400 });
-    }
-
-    const transaction = await prisma.transaction.create({
-      data: {
-        description: body.description,
-        amount: Math.abs(Number(body.amount)),
-        date: txDate,
-        type: body.type,
-        categoryId,
-        accountId: body.accountId,
+    try {
+      const transaction = await TransactionService.create({
         userId,
-        payee: body.payee || null,
-        payer: body.payer || null,
-        bankRefId: body.bankRefId || null,
-        externalId: generatedExternalId
+        ...body
+      });
+      return NextResponse.json(transaction, { status: 201 });
+    } catch (err: any) {
+      if (err.message === 'Conta inválida ou não encontrada' || err.message === 'Categoria inválida ou não encontrada') {
+        return NextResponse.json({ message: err.message }, { status: 403 });
       }
-    });
-
-    return NextResponse.json(transaction, { status: 201 });
+      if (err.message === 'Esta transação já foi registrada anteriormente.') {
+        return NextResponse.json({ message: err.message }, { status: 400 });
+      }
+      throw err;
+    }
   } catch (error: any) {
     console.error('POST Transaction Error:', error);
     return NextResponse.json({ message: 'Erro ao salvar no banco', details: error.message }, { status: 500 });

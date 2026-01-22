@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     if (!session?.user?.id) return NextResponse.json([]);
     const userId = session.user.id;
 
+    // 1. Fetch all accounts
     const accounts = await prisma.account.findMany({
       where: { userId },
       include: {
@@ -19,31 +20,37 @@ export async function GET(request: Request) {
       orderBy: { name: 'asc' }
     });
 
-    const results = await Promise.all(accounts.map(async (acc) => {
-      const [incomeSum, expenseSum, investmentSum] = await Promise.all([
-        prisma.transaction.aggregate({
-          where: { accountId: acc.id, userId, type: 'INCOME' },
-          _sum: { amount: true }
-        }),
-        prisma.transaction.aggregate({
-          where: { accountId: acc.id, userId, type: 'EXPENSE' },
-          _sum: { amount: true }
-        }),
-        prisma.investment.aggregate({
-          where: { accountId: acc.id, userId },
-          _sum: { currentValue: true, amount: true }
-        })
-      ]);
+    // 2. Aggregate Incomes and Expenses by AccountId (Single Query)
+    const transactionAggregations = await prisma.transaction.groupBy({
+      by: ['accountId', 'type'],
+      where: { userId },
+      _sum: { amount: true }
+    });
 
-      const balance = (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
-      const investmentTotal = investmentSum._sum.currentValue || investmentSum._sum.amount || 0;
+    // 3. Aggregate Investments by AccountId (Single Query)
+    const investmentAggregations = await prisma.investment.groupBy({
+      by: ['accountId'],
+      where: { userId },
+      _sum: { currentValue: true, amount: true }
+    });
+
+    // 4. Map results in memory
+    const results = accounts.map((acc) => {
+      const accountTransactions = transactionAggregations.filter(t => t.accountId === acc.id);
+      
+      const incomeSum = accountTransactions.find(t => t.type === 'INCOME')?._sum.amount || 0;
+      const expenseSum = accountTransactions.find(t => t.type === 'EXPENSE')?._sum.amount || 0;
+      const balance = incomeSum - expenseSum;
+
+      const accountInvestment = investmentAggregations.find(i => i.accountId === acc.id);
+      const investmentTotal = accountInvestment?._sum.currentValue || accountInvestment?._sum.amount || 0;
 
       return {
         ...acc,
         balance,
         investmentTotal
       };
-    }));
+    });
 
     return NextResponse.json(results);
   } catch (error) {
