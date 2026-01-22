@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { subscriptionPaymentSchema } from '@/lib/validations';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,7 +10,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const body = await request.json();
-    const { amount, date, accountId } = body;
+    
+    // 1. Validação Zod
+    const validation = subscriptionPaymentSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Dados inválidos', errors: validation.error.format() }, { status: 400 });
+    }
+    
+    const { amount, date, accountId } = validation.data;
     const userId = session.user.id;
 
     const sub = await prisma.recurringTransaction.findUnique({
@@ -19,11 +27,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (!sub) return NextResponse.json({ error: 'Assinatura não encontrada' }, { status: 404 });
 
-    // 1. Criar a transação real baseada no pagamento manual
+    // 2. Criar a transação real
     const transaction = await prisma.transaction.create({
       data: {
         description: `Pgto: ${sub.description}`,
-        amount: Math.abs(Number(amount)),
+        amount: Math.abs(amount),
         date: new Date(date),
         type: 'EXPENSE',
         categoryId: sub.categoryId,
@@ -33,11 +41,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     });
 
-    // 2. Atualizar a assinatura para o próximo período (se tiver data)
+    // 3. Atualizar a assinatura para o próximo período (Lógica Robusta)
     if (sub.nextRun) {
-      const nextDate = new Date(sub.nextRun);
+      const currentNextRun = new Date(sub.nextRun);
+      const nextDate = new Date(currentNextRun);
+      
       if (sub.frequency === 'MONTHLY') {
+        const expectedMonth = (nextDate.getMonth() + 1) % 12;
         nextDate.setMonth(nextDate.getMonth() + 1);
+        // Ajuste para não pular meses (ex: 31 Jan -> 28 Fev)
+        if (nextDate.getMonth() !== expectedMonth) {
+          nextDate.setDate(0);
+        }
       } else if (sub.frequency === 'WEEKLY') {
         nextDate.setDate(nextDate.getDate() + 7);
       } else if (sub.frequency === 'YEARLY') {

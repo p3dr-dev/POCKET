@@ -44,3 +44,10 @@ export const debtSchema = z.object({
   type: z.enum(['SINGLE', 'INSTALLMENT']).optional().default('SINGLE'),
   installmentsCount: z.number().int().min(1).optional().default(1),
 });
+
+// --- Esquemas de Assinatura ---
+export const subscriptionPaymentSchema = z.object({
+  amount: z.number().positive('O valor deve ser positivo'),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data inválida'),
+  accountId: z.string().optional(),
+});
