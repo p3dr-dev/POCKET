@@ -31,6 +31,7 @@ export const metadata: Metadata = {
 
 import AuthProvider from '@/components/AuthProvider';
 import PwaRegister from '@/components/PwaRegister';
+import GlobalCommandBar from '@/components/GlobalCommandBar';
 
 export default function RootLayout({
   children,
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <PwaRegister />
         <AuthProvider>
+          <GlobalCommandBar />
           {children}
           <Toaster 
             position="bottom-right"
