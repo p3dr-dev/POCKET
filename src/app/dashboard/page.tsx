@@ -136,7 +136,8 @@ export default function Dashboard() {
     const monthDebts = Array.isArray(debts) ? debts.filter(d => {
       if (!d.dueDate) return false;
       const dDate = new Date(d.dueDate);
-      return (dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear()) || (dDate < now && d.paidAmount < d.totalAmount);
+      const isPaid = (d.totalAmount - d.paidAmount) <= 0.01;
+      return !isPaid && ((dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear()) || (dDate < now));
     }) : [];
     
     const monthDebtsTotal = monthDebts.reduce((acc, d) => acc + d.totalAmount, 0);
@@ -207,7 +208,8 @@ export default function Dashboard() {
       .filter(d => {
         if (!d.dueDate) return true; // Dívidas sem data sempre aparecem como pendentes
         const dDate = new Date(d.dueDate);
-        return (dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear) || (dDate < now && d.paidAmount < d.totalAmount);
+        const isPaid = (d.totalAmount - d.paidAmount) <= 0.01;
+        return !isPaid && ((dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear) || (dDate < now));
       })
       .map(d => ({ 
         ...d, 
