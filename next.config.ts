@@ -8,6 +8,9 @@ const withPWA = require('next-pwa')({
 
 const nextConfig: NextConfig = {
   images: { unoptimized: true },
+  outputFileTracingIncludes: {
+    '/api/ai/scan-receipt': ['./scripts/**/*'],
+  },
 };
 
 export default withPWA(nextConfig);

@@ -35,10 +35,7 @@ export async function POST(request: Request) {
     if (file.type.startsWith('image/')) {
       // Usar Tesseract.js para extração robusta de texto de imagens
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('por', 1, {
-        workerPath: path.join(process.cwd(), 'node_modules', 'tesseract.js', 'dist', 'worker.min.js'),
-        langPath: process.cwd(),
-      });
+      const worker = await createWorker('por', 1);
       const { data: { text: ocrText } } = await worker.recognize(buffer);
       await worker.terminate();
       text = ocrText;
