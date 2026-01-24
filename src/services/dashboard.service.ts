@@ -1,8 +1,8 @@
 import prisma from '@/lib/prisma';
 
 export class DashboardService {
-  static async getPulse(userId: string) {
-    const now = new Date();
+  static async getPulse(userId: string, refDate?: Date) {
+    const now = refDate || new Date();
     
     // Time Ranges
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -19,13 +19,7 @@ export class DashboardService {
     ]);
 
     // 2. Fetch Balances
-    const accounts = await prisma.account.findMany({
-      where: { userId },
-      select: { id: true, name: true, type: true, color: true } // Balance is calculated via transactions usually, checking schema...
-      // Schema says Account doesn't store balance, it's calculated. 
-      // Wait, the previous code in `useDashboardData` summed `acc.balance`. 
-      // Let's check `api/accounts/route.ts` to see how it sends balance.
-    });
+    const accounts = await this.getBalances(userId);
 
     // 3. Fixed Costs (Debts + Subs)
     const [allDebts, subs] = await Promise.all([
@@ -39,17 +33,20 @@ export class DashboardService {
 
     const debts = allDebts.filter(d => d.paidAmount < d.totalAmount);
 
-    // Calculate pending debts for THIS month
-    const currentMonthDebts = debts.filter(d => {
-      // FIX: If no due date, do NOT count as monthly fixed cost (User Feedback)
+    // Calculate pending debts for a rolling 30-day window (to avoid "end-of-month" illusion)
+    const rollingWindowDate = new Date(now);
+    rollingWindowDate.setDate(now.getDate() + 30);
+
+    const upcomingObligations = debts.filter(d => {
+      // FIX: If no due date, do NOT count as upcoming fixed cost (User Feedback)
       if (!d.dueDate) return false; 
       
       const dDate = new Date(d.dueDate);
-      // Count if it's due in the past (overdue) OR in the current month
-      return dDate <= now || (dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear());
+      // Count if it's due in the past (overdue) OR within the next 30 days
+      return dDate <= rollingWindowDate;
     }).reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
 
-    // Calculate monthly subs
+    // Calculate monthly subs (Assuming these hit within the 30-day window)
     const monthlySubs = subs.reduce((sum, s) => {
       let val = s.amount || 0;
       if (s.frequency === 'WEEKLY') val *= 4;
@@ -57,7 +54,7 @@ export class DashboardService {
       return sum + val;
     }, 0);
 
-    const totalFixedCosts = currentMonthDebts + monthlySubs;
+    const totalFixedCosts = upcomingObligations + monthlySubs;
 
     // 4. Goals (Target Gap & Monthly Contribution Needed)
     const goals = await prisma.goal.findMany({ where: { userId } });
@@ -67,7 +64,7 @@ export class DashboardService {
       
       // Calculate months until deadline
       const deadline = new Date(g.deadline);
-      const today = new Date();
+      const today = now;
       
       // Difference in months
       let monthsLeft = (deadline.getFullYear() - today.getFullYear()) * 12 + (deadline.getMonth() - today.getMonth());
@@ -86,19 +83,19 @@ export class DashboardService {
     }, { totalRemaining: 0, monthlyNeed: 0 });
 
     // 5. Budgets (Category Limits)
-    const budgets = await this.getBudgets(userId);
+    const budgets = await this.getBudgets(userId, now);
 
     return {
       pulse: { daily, weekly, monthly },
-      fixedCosts: { debts: currentMonthDebts, subs: monthlySubs, total: totalFixedCosts },
+      fixedCosts: { debts: upcomingObligations, subs: monthlySubs, total: totalFixedCosts },
       goals: goalsMath,
       accounts,
       budgets
     };
   }
 
-  private static async getBudgets(userId: string) {
-    const now = new Date();
+  private static async getBudgets(userId: string, refDate?: Date) {
+    const now = refDate || new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Fetch categories with limits

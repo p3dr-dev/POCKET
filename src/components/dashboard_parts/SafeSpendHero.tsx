@@ -68,7 +68,7 @@ export default function SafeSpendHero({ data }: SafeSpendProps) {
           <p className={`text-2xl md:text-3xl font-black tracking-tight transition-all duration-300 ${isBlur ? 'blur-md select-none' : ''}`}>
             {formatCurrency(data.disposable)}
           </p>
-          <p className="text-[10px] mt-1 opacity-50">Livre de dívidas do mês</p>
+          <p className="text-[10px] mt-1 opacity-50">Livre de obrigações (Próximos 30 dias)</p>
         </div>
       </div>
       

@@ -18,27 +18,30 @@ export async function GET() {
     // Calculate Safe Spend
     const totalBalance = accountsWithBalance.reduce((sum, a) => sum + a.balance, 0);
     const now = new Date();
+    
+    // We use a 30-day window for "Safe Spend" to match our rolling obligations look-ahead.
+    // This prevents the "end-of-month surplus" illusion.
+    const windowDays = 30;
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
+    const daysRemainingInMonth = Math.max(1, daysInMonth - now.getDate() + 1);
 
-    // Logic: (Liquid Cash - Fixed Costs Pending) / Days Remaining
-    // We assume "Liquid Cash" is Total Balance.
+    // Logic: (Total Liquidity - Obligations in next 30 days) / 30 days
     const disposableIncome = totalBalance - data.fixedCosts.total;
-    const safeDaily = disposableIncome / daysRemaining;
+    const safeDaily = disposableIncome / windowDays;
     const safeWeekly = safeDaily * 7;
-    const safeMonthly = disposableIncome; // For the rest of the month
+    const safeMonthly = disposableIncome; // Real disposable for the next 30 days
 
-    // Hustle Logic (Target Income)
+    // Hustle Logic (Target Income) - Still based on calendar month for budget goals
     const totalMonthlyNeed = data.fixedCosts.total + data.goals.monthlyNeed;
     const currentIncome = data.pulse.monthly.income;
     const remainingToEarn = Math.max(0, totalMonthlyNeed - currentIncome);
-    const dailyHustleTarget = remainingToEarn / daysRemaining;
+    const dailyHustleTarget = remainingToEarn / daysRemainingInMonth;
 
     const hustle = {
       needed: totalMonthlyNeed,
       current: currentIncome,
       dailyTarget: dailyHustleTarget,
-      daysLeft: daysRemaining,
+      daysLeft: daysRemainingInMonth,
       breakdown: {
         fixed: data.fixedCosts.total,
         goals: data.goals.monthlyNeed
