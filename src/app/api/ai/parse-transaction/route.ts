@@ -47,7 +47,18 @@ export async function POST(request: Request) {
 
     const aiResponse = await askAI(`Texto: "${text}"`, system);
     
-    let parsed: any = {};
+    interface ParsedTransaction {
+      description?: string;
+      amount?: number;
+      date?: string;
+      type?: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+      categoryName?: string;
+      accountName?: string;
+      fromAccountName?: string;
+      toAccountName?: string;
+    }
+
+    let parsed: ParsedTransaction = {};
     try {
       const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -61,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Smart Matching Utility
-    const findMatch = (aiName: string, list: { id: string, name: string }[]) => {
+    const findMatch = (aiName: string | undefined, list: { id: string, name: string }[]) => {
       if (!aiName) return null;
       const normalizedAi = aiName.toLowerCase();
       return list.find(item => {

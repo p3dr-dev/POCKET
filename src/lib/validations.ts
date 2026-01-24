@@ -51,3 +51,12 @@ export const subscriptionPaymentSchema = z.object({
   date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data inválida'),
   accountId: z.string().optional(),
 });
+
+// --- Esquemas de Objetivo ---
+export const goalSchema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório').max(50),
+  targetAmount: z.number().positive('O valor alvo deve ser positivo'),
+  currentAmount: z.number().min(0).default(0),
+  deadline: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data inválida'),
+  color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Cor inválida').default('#000000'),
+});

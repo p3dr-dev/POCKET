@@ -1,0 +1,79 @@
+'use client';
+
+import { usePrivacy } from '@/components/PrivacyProvider';
+
+interface HustleProps {
+  data: {
+    needed: number; // Fixed Costs + Goal Contribution
+    current: number; // Income so far
+    dailyTarget: number; // (Needed - Current) / DaysLeft
+    daysLeft: number;
+    breakdown: {
+      fixed: number;
+      goals: number;
+    };
+  };
+}
+
+export default function HustleWidget({ data }: HustleProps) {
+  const { isBlur } = usePrivacy();
+  const format = (v: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  const isCovered = data.current >= data.needed;
+  const progress = Math.min(100, (data.current / data.needed) * 100);
+
+  return (
+    <div className="bg-black text-white rounded-[2.5rem] p-8 border border-gray-800 shadow-2xl relative overflow-hidden">
+      {/* Header */}
+      <div className="relative z-10 flex justify-between items-start mb-8">
+        <div>
+          <h3 className="text-xl font-black tracking-tight">Meta Diária (Hustle)</h3>
+          <p className="text-xs text-gray-400 mt-1 font-medium max-w-[200px]">
+            Para pagar contas e bater metas do mês.
+          </p>
+        </div>
+        <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+          <span className="text-[10px] font-black uppercase tracking-widest">{data.daysLeft} dias restantes</span>
+        </div>
+      </div>
+
+      {/* Main Number */}
+      <div className="relative z-10 mb-8">
+        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Você precisa gerar hoje</p>
+        <div className={`text-5xl font-black tracking-tighter tabular-nums transition-all duration-300 ${isBlur ? 'blur-md select-none' : ''} ${isCovered ? 'text-emerald-400' : 'text-white'}`}>
+          {isCovered ? 'META BATIDA!' : format(data.dailyTarget)}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="relative z-10 space-y-2 mb-6">
+        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
+          <span>Progresso do Mês</span>
+          <span>{progress.toFixed(0)}%</span>
+        </div>
+        <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all duration-1000 ${isCovered ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Breakdown Grid */}
+      <div className="relative z-10 grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
+        <div>
+          <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Custo Fixo</p>
+          <p className={`text-sm font-bold transition-all duration-300 ${isBlur ? 'blur-sm select-none' : ''}`}>{format(data.breakdown.fixed)}</p>
+        </div>
+        <div>
+          <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Aporte Metas</p>
+          <p className={`text-sm font-bold transition-all duration-300 ${isBlur ? 'blur-sm select-none' : ''}`}>{format(data.breakdown.goals)}</p>
+        </div>
+      </div>
+
+      {/* Background Decor */}
+      <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-600/20 rounded-full blur-[80px] pointer-events-none" />
+    </div>
+  );
+}

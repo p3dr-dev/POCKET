@@ -1,270 +1,131 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import SummaryCard from '@/components/SummaryCard';
-import TransactionModal from '@/components/modals/TransactionModal';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import DailyExpensesWidget from '@/components/widgets/DailyExpensesWidget';
-import MonthlyDebtsWidget from '@/components/widgets/MonthlyDebtsWidget';
-import TransactionHistory from '@/components/dashboard_parts/TransactionHistory';
-import AiLabWidget from '@/components/dashboard_parts/AiLabWidget';
-import FinancialPlanner from '@/components/dashboard_parts/FinancialPlanner';
-import CategoryBreakdown from '@/components/dashboard_parts/CategoryBreakdown';
-import BudgetOverview from '@/components/dashboard_parts/BudgetOverview';
-import NetWorthChart from '@/components/dashboard_parts/NetWorthChart';
-import FinancialHealthWidget from '@/components/dashboard_parts/FinancialHealthWidget';
-import toast from 'react-hot-toast';
-import { useDashboardData, Transaction } from '@/hooks/useDashboardData';
+import SafeSpendHero from '@/components/dashboard_parts/SafeSpendHero';
+import CashFlowGrid from '@/components/dashboard_parts/CashFlowGrid';
+import HustleWidget from '@/components/dashboard_parts/HustleWidget';
+import BudgetWidget from '@/components/dashboard_parts/BudgetWidget';
+import { secureFetch } from '@/lib/api-client';
+import { usePrivacy } from '@/components/PrivacyProvider';
 
-export default function Dashboard() {
-  const {
-    transactions,
-    accounts,
-    investments,
-    categories,
-    netWorthHistory,
-    healthData,
-    isLoading,
-    fetchData,
-    getStats,
-    combinedCommitments
-  } = useDashboardData();
-  
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+export default function DashboardPage() {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [timeView, setTimeView] = useState<'DAY' | 'WEEK' | 'MONTH'>('MONTH');
-  
-  // IA Lab State
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const { isBlur, toggleBlur } = usePrivacy();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, fetchData]);
-
-  const stats = useMemo(() => getStats(timeView), [getStats, timeView]);
-
-  const handleManualAI = async () => {
-    setIsAiLoading(true);
-    try {
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      
-      const expenses = transactions.filter(t => {
-        const d = new Date(t.date);
-        return t.type === 'EXPENSE' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      });
-      const grouped = expenses.reduce((acc, t) => {
-        const cat = t.category?.name || 'Outros';
-        acc[cat] = (acc[cat] || 0) + t.amount;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const topCategories = Object.entries(grouped)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, val]) => `${name}: R$ ${val.toFixed(2)}`)
-        .join(', ');
-
-      const res = await fetch('/api/ai/insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...stats, 
-          topCategories 
-        }),
-      });
-      const result = await res.json();
-      setAiInsight(result.content);
-      toast.success('Insights gerados pelo Gemini');
-    } catch {
-      toast.error('Erro ao chamar IA');
-    } finally { setIsAiLoading(false); }
-  };
-
-  const handleDeleteBulk = async () => {
-    if (selectedIds.length === 0) return;
-    if (!confirm(`Excluir ${selectedIds.length} transações?`)) return;
-    try {
-      const res = await fetch('/api/transactions/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedIds })
-      });
-      if (res.ok) {
-        toast.success('Removidas');
-        setSelectedIds([]);
-        await fetchData();
+    async function load() {
+      try {
+        const res = await secureFetch('/api/dashboard/intelligence');
+        setData(res);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      toast.error('Erro ao excluir');
     }
-  };
+    load();
+  }, []);
 
-  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const formatCurrency = (v: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   return (
     <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
-        <header className="flex-none px-6 py-6 xl:px-12 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-gray-100/50 bg-[#F8FAFC]/80 backdrop-blur-md z-10">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <header className="flex-none bg-[#F8FAFC]/80 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center border-b border-gray-100/50 z-10">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm border lg:hidden active:scale-95 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm border border-gray-100 lg:hidden active:scale-95 transition-transform">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-black">Dashboard</h1>
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex bg-gray-100 p-0.5 rounded-lg">
-                  {(['DAY', 'WEEK', 'MONTH'] as const).map(v => (
-                    <button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-[8px] font-black uppercase tracking-wider transition-all ${timeView === v ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}>{v === 'DAY' ? 'Dia' : v === 'WEEK' ? 'Sem' : 'Mês'}</button>
-                  ))}
-                </div>
-              </div>
+              <h1 className="text-xl lg:text-2xl font-black tracking-tight">Visão Geral</h1>
+              <p className="hidden md:block text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Inteligência Operacional</p>
             </div>
           </div>
-          
+
+          {/* Privacy Toggle */}
           <button 
-            onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} 
-            className="bg-black text-white px-8 py-4 rounded-[20px] font-black hover:bg-gray-800 transition-all shadow-xl flex items-center gap-3 active:scale-95"
+            onClick={toggleBlur}
+            className={`p-3 rounded-xl transition-all active:scale-95 border ${
+              isBlur 
+                ? 'bg-black text-white border-black shadow-lg' 
+                : 'bg-white text-gray-400 border-gray-100 hover:text-black hover:border-black'
+            }`}
+            title={isBlur ? "Mostrar Valores" : "Ocultar Valores"}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-            <span>Novo Lançamento</span>
+            {isBlur ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            )}
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 xl:px-12 py-8 custom-scrollbar">
-          <div className="max-w-screen-2xl mx-auto space-y-10 pb-20">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          <div className="max-w-screen-xl mx-auto space-y-6">
             
-            {/* Onboarding Wizard */}
-            {!isLoading && transactions.length === 0 && (
-              <div className="bg-black text-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl animate-in slide-in-from-top-4 relative overflow-hidden">
-                <div className="relative z-10 max-w-2xl">
-                   <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-4">Bem-vindo ao Pocket! 🚀</h2>
-                   <p className="text-gray-400 font-medium mb-8 leading-relaxed">
-                     Seu painel financeiro está pronto. Para começar a ver a mágica acontecer, precisamos de alguns dados iniciais.
-                     Siga os passos abaixo para ativar sua inteligência financeira.
-                   </p>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <button onClick={() => window.location.href='/accounts'} className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-left transition-all border border-white/10 group">
-                         <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">1</div>
-                         <h3 className="font-bold text-sm">Criar Conta</h3>
-                         <p className="text-[10px] text-gray-400 mt-1">Cadastre seu banco ou carteira física.</p>
-                      </button>
-                      <button onClick={() => setIsModalOpen(true)} className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-left transition-all border border-white/10 group">
-                         <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">2</div>
-                         <h3 className="font-bold text-sm">Primeiro Registro</h3>
-                         <p className="text-[10px] text-gray-400 mt-1">Adicione uma receita ou despesa inicial.</p>
-                      </button>
-                   </div>
+            {isLoading ? (
+              <div className="animate-pulse space-y-6">
+                <div className="h-64 bg-gray-200 rounded-[2.5rem]" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="h-40 bg-gray-200 rounded-[2rem]" />
+                  <div className="h-40 bg-gray-200 rounded-[2rem]" />
+                  <div className="h-40 bg-gray-200 rounded-[2rem]" />
                 </div>
-                <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
-                   <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                      <path d="M0 100 C 20 0 50 0 100 100 Z" fill="url(#grad-onboarding)" />
-                      <defs>
-                        <linearGradient id="grad-onboarding" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#6366f1" />
-                          <stop offset="100%" stopColor="#10b981" />
-                        </linearGradient>
-                      </defs>
-                   </svg>
+              </div>
+            ) : data ? (
+              <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                
+                {/* 1. Accounts Ticker (Compact & Snappy) */}
+                <div>
+                  <h3 className="text-[10px] font-black uppercase text-gray-300 tracking-widest mb-3 pl-1">Minhas Contas</h3>
+                  <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar snap-x touch-pan-x -mx-4 px-4 md:mx-0 md:px-0">
+                    {data.accounts.map((acc: any) => (
+                      <div key={acc.id} className="flex-none snap-center bg-white p-4 rounded-2xl border border-gray-100 w-[160px] md:w-[200px] shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-[9px] font-black uppercase text-gray-400 truncate w-full" title={acc.name}>{acc.name}</p>
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: acc.color }} />
+                        </div>
+                        <p className={`text-lg md:text-xl font-black truncate transition-all duration-300 ${isBlur ? 'blur-md select-none' : ''} ${acc.balance < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+                          {formatCurrency(acc.balance)}
+                        </p>
+                      </div>
+                    ))}
+                    
+                    {/* Add Account Button (Fake) */}
+                    <button className="flex-none snap-center bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200 w-[60px] flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-all">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                  </div>
                 </div>
+
+                {/* 2. Hero: Safe Spend */}
+                <SafeSpendHero data={data.safeSpend} />
+
+                {/* 3. Cash Flow Pulse */}
+                <CashFlowGrid pulse={data.pulse} />
+
+                {/* 4. Hustle & Budgets Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                   <HustleWidget data={data.hustle} />
+                   <BudgetWidget budgets={data.budgets} />
+                </div>
+
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <p className="font-bold text-gray-400">Não foi possível carregar os dados.</p>
               </div>
             )}
 
-            {/* Main Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <SummaryCard title="Patrimônio Líquido" value={formatCurrency(stats.netWorth)} type="balance" isLoading={isLoading} />
-              <SummaryCard 
-                title={timeView === 'DAY' ? 'Receita Hoje' : timeView === 'WEEK' ? 'Receita Semana' : 'Receita Mês'} 
-                value={formatCurrency(stats.periodIncomes)} 
-                type="income" 
-                change={timeView === 'MONTH' ? stats.incomeChange : undefined}
-                isLoading={isLoading}
-              />
-              <SummaryCard 
-                title="Compromissos (Mês)" 
-                value={formatCurrency(stats.totalCommitments)} 
-                type="expense" 
-                change={timeView === 'MONTH' ? stats.expenseChange : undefined}
-                isLoading={isLoading}
-              />
-              <div className={`${stats.dailyGoal >= 0 ? 'bg-indigo-600' : 'bg-rose-600'} rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 flex flex-col justify-between group overflow-hidden relative transition-all hover:scale-[1.02]`}>
-                <div className="relative z-10">
-                  <span className="text-indigo-200 text-[10px] font-black uppercase tracking-widest leading-none">Limite Diário Seguro</span>
-                  {isLoading ? (
-                    <div className="h-8 w-32 bg-white/20 rounded-lg animate-pulse mt-2" />
-                  ) : (
-                    <h3 className="text-2xl font-black mt-2 tabular-nums">{formatCurrency(stats.dailyGoal)}</h3>
-                  )}
-                </div>
-                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-              </div>
-            </div>
-
-            {/* Middle Section: Planner, Evolution & Breakdown */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-              <FinancialPlanner 
-                monthDebtsTotal={stats.monthDebtsTotal} 
-                monthDebtsRemaining={stats.monthDebtsRemaining} 
-                monthlyFixedCost={stats.monthlyFixedCost}
-                monthlyGoalTarget={healthData?.monthlyGoalTarget || 0}
-                dailyGoal={stats.dailyGoal} 
-                isLoading={isLoading}
-              />
-              <NetWorthChart history={netWorthHistory} isLoading={isLoading} />
-              <CategoryBreakdown transactions={transactions} isLoading={isLoading} />
-            </div>
-
-            {/* Widgets Section: AI, Budgets & Debts */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
-               <div className="space-y-8">
-                 <FinancialHealthWidget data={healthData} isLoading={isLoading} />
-                 <AiLabWidget 
-                   insight={aiInsight} 
-                   isLoading={isAiLoading} 
-                   onGenerate={handleManualAI} 
-                   onClear={() => setAiInsight(null)} 
-                 />
-                 <BudgetOverview transactions={transactions} categories={categories} />
-               </div>
-               <div className="space-y-8">
-                 <DailyExpensesWidget transactions={transactions} />
-                 <div className="h-[450px]">
-                   <MonthlyDebtsWidget debts={combinedCommitments} />
-                 </div>
-               </div>
-            </div>
-
-            {/* Bottom Section: Transaction History */}
-            <div className="h-[800px]">
-              <TransactionHistory 
-                transactions={transactions}
-                isLoading={isLoading}
-                selectedIds={selectedIds}
-                onToggleSelect={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-                onDeleteBulk={handleDeleteBulk}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onEdit={(t) => { setEditingTransaction(t); setIsModalOpen(true); }}
-              />
-            </div>
           </div>
         </div>
       </main>
-
-      <TransactionModal 
-        isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} 
-        onSuccess={fetchData} 
-        transaction={editingTransaction} 
-      />
     </div>
   );
 }

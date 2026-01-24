@@ -97,7 +97,21 @@ export async function POST(request: Request) {
     const aiResponse = await askAI(prompt, "Você é um assistente de entrada de dados financeiros especializado em Open Finance Brasil.");
     
     // Robust JSON Extraction
-    let parsed: any = {};
+    interface ReceiptData {
+      description?: string;
+      amount?: number;
+      date?: string;
+      type?: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+      categoryName?: string;
+      accountName?: string;
+      payee?: string;
+      payer?: string;
+      bankRefId?: string;
+      fromAccountName?: string;
+      toAccountName?: string;
+    }
+
+    let parsed: ReceiptData = {};
     try {
       const jsonMatch = aiResponse?.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -133,7 +147,7 @@ export async function POST(request: Request) {
     });
     
     // Smart Matching for Accounts
-    const findAccount = (aiName: string) => {
+    const findAccount = (aiName: string | undefined) => {
       if (!aiName) return null;
       const normalizedAi = aiName.toLowerCase();
       return accounts.find(a => {

@@ -32,6 +32,7 @@ export const metadata: Metadata = {
 import AuthProvider from '@/components/AuthProvider';
 import PwaRegister from '@/components/PwaRegister';
 import GlobalCommandBar from '@/components/GlobalCommandBar';
+import { PrivacyProvider } from '@/components/PrivacyProvider';
 
 export default function RootLayout({
   children,
@@ -43,30 +44,32 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <PwaRegister />
         <AuthProvider>
-          <GlobalCommandBar />
-          {children}
-          <Toaster 
-            position="bottom-right"
-            toastOptions={{
-              className: '!bg-white !text-black !rounded-[1.5rem] !shadow-2xl !border !border-gray-100 !px-6 !py-4 !text-xs !font-black !uppercase !tracking-wider',
-              duration: 4000,
-              style: {
-                fontFamily: 'var(--font-geist-sans)',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: 'white',
+          <PrivacyProvider>
+            <GlobalCommandBar />
+            {children}
+            <Toaster 
+              position="bottom-right"
+              toastOptions={{
+                className: '!bg-white !text-black !rounded-[1.5rem] !shadow-2xl !border !border-gray-100 !px-6 !py-4 !text-xs !font-black !uppercase !tracking-wider',
+                duration: 4000,
+                style: {
+                  fontFamily: 'var(--font-geist-sans)',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#f43f5e',
-                  secondary: 'white',
+                success: {
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: 'white',
+                  },
                 },
-              },
-            }}
-          />
+                error: {
+                  iconTheme: {
+                    primary: '#f43f5e',
+                    secondary: 'white',
+                  },
+                },
+              }}
+            />
+          </PrivacyProvider>
         </AuthProvider>
       </body>
     </html>

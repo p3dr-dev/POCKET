@@ -157,7 +157,7 @@ export default function AccountsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {accounts.map((acc: any) => {
+                {accounts.map((acc: Account) => {
                   const balance = acc.balance || 0;
                   return (
                     <div key={acc.id} className="group bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 flex flex-col justify-between min-h-[220px]">

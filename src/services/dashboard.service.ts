@@ -1,0 +1,177 @@
+import prisma from '@/lib/prisma';
+
+export class DashboardService {
+  static async getPulse(userId: string) {
+    const now = new Date();
+    
+    // Time Ranges
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 1. Fetch Aggregated Transactions (Single DB Hit strategy roughly)
+    // Actually, distinct queries are cleaner for specific ranges and likely cached by DB
+    const [daily, weekly, monthly] = await Promise.all([
+      this.getFlow(userId, startOfDay),
+      this.getFlow(userId, startOfWeek),
+      this.getFlow(userId, startOfMonth)
+    ]);
+
+    // 2. Fetch Balances
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      select: { id: true, name: true, type: true, color: true } // Balance is calculated via transactions usually, checking schema...
+      // Schema says Account doesn't store balance, it's calculated. 
+      // Wait, the previous code in `useDashboardData` summed `acc.balance`. 
+      // Let's check `api/accounts/route.ts` to see how it sends balance.
+    });
+
+    // 3. Fixed Costs (Debts + Subs)
+    const [allDebts, subs] = await Promise.all([
+      prisma.debt.findMany({
+        where: { userId }
+      }),
+      prisma.recurringTransaction.findMany({
+        where: { userId, active: true }
+      })
+    ]);
+
+    const debts = allDebts.filter(d => d.paidAmount < d.totalAmount);
+
+    // Calculate pending debts for THIS month
+    const currentMonthDebts = debts.filter(d => {
+      // FIX: If no due date, do NOT count as monthly fixed cost (User Feedback)
+      if (!d.dueDate) return false; 
+      
+      const dDate = new Date(d.dueDate);
+      // Count if it's due in the past (overdue) OR in the current month
+      return dDate <= now || (dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear());
+    }).reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+
+    // Calculate monthly subs
+    const monthlySubs = subs.reduce((sum, s) => {
+      let val = s.amount || 0;
+      if (s.frequency === 'WEEKLY') val *= 4;
+      if (s.frequency === 'YEARLY') val /= 12;
+      return sum + val;
+    }, 0);
+
+    const totalFixedCosts = currentMonthDebts + monthlySubs;
+
+    // 4. Goals (Target Gap & Monthly Contribution Needed)
+    const goals = await prisma.goal.findMany({ where: { userId } });
+    
+    const goalsMath = goals.reduce((acc, g) => {
+      const remainingAmount = Math.max(0, g.targetAmount - g.currentAmount);
+      
+      // Calculate months until deadline
+      const deadline = new Date(g.deadline);
+      const today = new Date();
+      
+      // Difference in months
+      let monthsLeft = (deadline.getFullYear() - today.getFullYear()) * 12 + (deadline.getMonth() - today.getMonth());
+      
+      // Adjust if day of month is passed (rough estimate)
+      if (deadline.getDate() < today.getDate()) monthsLeft -= 0.5;
+      
+      monthsLeft = Math.max(0.5, monthsLeft); // Avoid division by zero, min half a month
+
+      const monthlyContribution = remainingAmount / monthsLeft;
+      
+      return {
+        totalRemaining: acc.totalRemaining + remainingAmount,
+        monthlyNeed: acc.monthlyNeed + monthlyContribution
+      };
+    }, { totalRemaining: 0, monthlyNeed: 0 });
+
+    // 5. Budgets (Category Limits)
+    const budgets = await this.getBudgets(userId);
+
+    return {
+      pulse: { daily, weekly, monthly },
+      fixedCosts: { debts: currentMonthDebts, subs: monthlySubs, total: totalFixedCosts },
+      goals: goalsMath,
+      accounts,
+      budgets
+    };
+  }
+
+  private static async getBudgets(userId: string) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Fetch categories with limits
+    const categories = await prisma.category.findMany({
+      where: { userId, monthlyLimit: { not: null } },
+      select: { id: true, name: true, color: true, monthlyLimit: true }
+    });
+
+    if (categories.length === 0) return [];
+
+    // Aggregate expenses for these categories this month
+    const spending = await prisma.transaction.groupBy({
+      by: ['categoryId'],
+      where: {
+        userId,
+        date: { gte: startOfMonth },
+        type: 'EXPENSE',
+        categoryId: { in: categories.map(c => c.id) }
+      },
+      _sum: { amount: true }
+    });
+
+    return categories.map(cat => {
+      const spent = spending.find(s => s.categoryId === cat.id)?._sum.amount || 0;
+      return {
+        ...cat,
+        spent,
+        remaining: (cat.monthlyLimit || 0) - spent,
+        percentage: Math.min(100, (spent / (cat.monthlyLimit || 1)) * 100)
+      };
+    }).sort((a, b) => b.percentage - a.percentage); // Sort by highest usage
+  }
+
+  private static async getFlow(userId: string, fromDate: Date) {
+    const aggregations = await prisma.transaction.groupBy({
+      by: ['type'],
+      where: {
+        userId,
+        date: { gte: fromDate },
+        transferId: null, // Exclude explicit transfers
+        // Extra safety: Exclude categories that sound like transfers
+        category: {
+           isNot: { name: { contains: 'Transfer', mode: 'insensitive' } }
+        }
+      },
+      _sum: { amount: true }
+    });
+
+    const income = aggregations.find(a => a.type === 'INCOME')?._sum.amount || 0;
+    const expense = aggregations.find(a => a.type === 'EXPENSE')?._sum.amount || 0;
+
+    return { income, expense, net: income - expense };
+  }
+
+  static async getBalances(userId: string) {
+    // This replicates the logic from /api/accounts to get actual balances
+    const accounts = await prisma.account.findMany({ where: { userId } });
+    
+    // Aggregations for speed
+    const txs = await prisma.transaction.groupBy({
+      by: ['accountId', 'type'],
+      where: { userId },
+      _sum: { amount: true }
+    });
+
+    return accounts.map(acc => {
+      const accTxs = txs.filter(t => t.accountId === acc.id);
+      const inc = accTxs.find(t => t.type === 'INCOME')?._sum.amount || 0;
+      const exp = accTxs.find(t => t.type === 'EXPENSE')?._sum.amount || 0;
+      return {
+        ...acc,
+        balance: inc - exp
+      };
+    });
+  }
+}

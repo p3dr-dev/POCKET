@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { goalSchema } from '@/lib/validations';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -27,18 +28,28 @@ export async function POST(request: Request) {
     if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
+    
+    const validation = goalSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ 
+        message: 'Dados inválidos', 
+        errors: validation.error.format() 
+      }, { status: 400 });
+    }
+
+    const { name, targetAmount, currentAmount, deadline: deadlineStr, color } = validation.data;
     const userId = session.user.id;
     
-    const deadlineStr = body.deadline.includes('T') ? body.deadline : `${body.deadline}T12:00:00.000Z`;
-    const deadline = new Date(deadlineStr);
+    const deadlineDate = deadlineStr.includes('T') ? deadlineStr : `${deadlineStr}T12:00:00.000Z`;
+    const deadline = new Date(deadlineDate);
 
     const goal = await prisma.goal.create({
       data: {
-        name: body.name,
-        targetAmount: Number(body.targetAmount),
-        currentAmount: Number(body.currentAmount || 0),
+        name,
+        targetAmount,
+        currentAmount,
         deadline,
-        color: body.color || '#000000',
+        color,
         userId
       }
     });
