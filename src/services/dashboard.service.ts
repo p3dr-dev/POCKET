@@ -11,10 +11,11 @@ export class DashboardService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // 1. Fetch Aggregated Transactions (Single DB Hit strategy roughly)
-    const [daily, weekly, monthly, recentTransactions] = await Promise.all([
+    const [daily, weekly, monthly, activeMonthly, recentTransactions] = await Promise.all([
       this.getFlow(userId, startOfDay),
       this.getFlow(userId, startOfWeek),
       this.getFlow(userId, startOfMonth),
+      this.getFlow(userId, startOfMonth, ['Rendimentos', 'Investimentos']), // Active Income Only
       prisma.transaction.findMany({
         where: { 
           userId, 
@@ -115,7 +116,7 @@ export class DashboardService {
     const budgets = await this.getBudgets(userId, now);
 
     return {
-      pulse: { daily, weekly, monthly },
+      pulse: { daily, weekly, monthly, activeMonthly },
       fixedCosts: { debts: upcomingObligationsVal, subs: monthlySubsVal, total: totalFixedCosts },
       goals: goalsMath,
       accounts,
@@ -160,16 +161,21 @@ export class DashboardService {
     }).sort((a, b) => b.percentage - a.percentage); // Sort by highest usage
   }
 
-  private static async getFlow(userId: string, fromDate: Date) {
+  private static async getFlow(userId: string, fromDate: Date, excludeCategories: string[] = []) {
     const aggregations = await prisma.transaction.groupBy({
       by: ['type'],
       where: {
         userId,
         date: { gte: fromDate },
         transferId: null, // Exclude explicit transfers
-        // Extra safety: Exclude categories that sound like transfers
+        // Extra safety: Exclude categories that sound like transfers or are passive
         category: {
-           isNot: { name: { contains: 'Transfer', mode: 'insensitive' } }
+           isNot: { 
+             name: { 
+               in: ['Transferência', 'Transfer', ...excludeCategories], 
+               mode: 'insensitive' 
+             } 
+           }
         }
       },
       _sum: { amount: true }

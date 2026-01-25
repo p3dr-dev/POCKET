@@ -8,6 +8,8 @@ interface HustleProps {
     current: number; // Income so far
     dailyTarget: number; // (Needed - Current) / DaysLeft
     daysLeft: number;
+    activeIncome?: number;
+    passiveIncome?: number;
     breakdown: {
       fixed: number;
       goals: number;
@@ -38,8 +40,16 @@ export default function HustleWidget({ data }: HustleProps) {
               Para cobrir custos, metas e rombos.
             </p>
           </div>
-          <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
-            <span className="text-[10px] font-black uppercase tracking-widest">{data.daysLeft} dias rest.</span>
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+              <span className="text-[10px] font-black uppercase tracking-widest">{data.daysLeft} dias rest.</span>
+            </div>
+            {data.passiveIncome && data.passiveIncome > 0 && (
+              <div className="flex items-center gap-1 text-[9px] font-black text-emerald-400 uppercase tracking-tighter bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                <span>+{format(data.passiveIncome)} passivo</span>
+              </div>
+            )}
           </div>
         </div>
 

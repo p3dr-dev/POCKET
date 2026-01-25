@@ -35,7 +35,10 @@ export async function GET() {
     // We stop looking at "Income History" and look at "Current Solvency".
     // Formula: (Fixed Costs + Goal Contributions) - Current Balance = Amount to Earn
     
-    const currentIncome = data.pulse.monthly.income;
+    const activeIncome = data.pulse.activeMonthly.income;
+    const totalIncome = data.pulse.monthly.income;
+    const passiveIncome = totalIncome - activeIncome;
+    
     const totalMonthlyNeed = data.fixedCosts.total + data.goals.monthlyNeed;
     
     // If Balance covers everything, Missing is 0.
@@ -46,9 +49,11 @@ export async function GET() {
 
     const hustle = {
       needed: totalMonthlyNeed,
-      current: totalBalance, // We compare against Balance, not Income
+      current: totalBalance, // Comparison for Solvency
       dailyTarget: dailyHustleTarget,
       daysLeft: daysRemainingInMonth,
+      activeIncome,
+      passiveIncome,
       breakdown: {
         fixed: data.fixedCosts.total,
         goals: data.goals.monthlyNeed,
@@ -67,8 +72,8 @@ export async function GET() {
       hustle,
       coverage: { // Legacy support or keep for gap widget if needed
          needed: data.fixedCosts.total,
-         current: currentIncome,
-         gap: Math.max(0, data.fixedCosts.total - currentIncome)
+         current: activeIncome, // Switch to Active Income only for "Work" coverage
+         gap: Math.max(0, data.fixedCosts.total - activeIncome)
       },
       accounts: accountsWithBalance,
       budgets: data.budgets,
