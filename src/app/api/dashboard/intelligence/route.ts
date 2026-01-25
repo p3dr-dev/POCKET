@@ -35,6 +35,7 @@ export async function GET() {
     // We stop looking at "Income History" and look at "Current Solvency".
     // Formula: (Fixed Costs + Goal Contributions) - Current Balance = Amount to Earn
     
+    const currentIncome = data.pulse.monthly.income;
     const totalMonthlyNeed = data.fixedCosts.total + data.goals.monthlyNeed;
     
     // If Balance covers everything, Missing is 0.
