@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { askAI } from '@/lib/ai';
 import { auth } from '@/auth';
+import { parseOfx } from '@/lib/ofx-parser';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ interface ParsedTransaction {
   payer?: string;
   payee?: string;
   bankRefId?: string;
+  fitId?: string;
 }
 
 // Fallback de categorização baseada em regras simples
@@ -337,24 +339,6 @@ function parseCSV(text: string): ParsedTransaction[] {
   return transactions;
 }
 
-function parseOFX(text: string): ParsedTransaction[] {
-  const transactions: ParsedTransaction[] = [];
-  const bankTranList = text.split('<STMTTRN>');
-  bankTranList.forEach(block => {
-    const amountMatch = block.match(/<TRNAMT>([\d.,-]+)/);
-    const dateMatch = block.match(/<DTPOSTED>(\d{8})/);
-    const memoMatch = block.match(/<MEMO>(.*)/);
-    if (amountMatch && dateMatch && memoMatch) {
-      const rawDate = dateMatch[1];
-      const date = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
-      const amount = parseFloat(amountMatch[1].replace(',', '.'));
-      const description = memoMatch[1].trim();
-      transactions.push({ date, description, amount });
-    }
-  });
-  return transactions;
-}
-
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -378,7 +362,15 @@ export async function POST(request: Request) {
     let parsedTxs: ParsedTransaction[] = [];
     if (file.name.toLowerCase().endsWith('.pdf')) parsedTxs = await parseAdvancedPDF(buffer);
     else if (file.name.toLowerCase().endsWith('.csv')) parsedTxs = parseCSV(buffer.toString('utf-8'));
-    else if (file.name.toLowerCase().endsWith('.ofx')) parsedTxs = parseOFX(buffer.toString('utf-8'));
+    else if (file.name.toLowerCase().endsWith('.ofx')) {
+       const rawOfx = parseOfx(buffer.toString('utf-8'));
+       parsedTxs = rawOfx.map(t => ({
+         date: t.date.toISOString().split('T')[0],
+         description: t.description,
+         amount: t.type === 'EXPENSE' ? -Math.abs(t.amount) : Math.abs(t.amount),
+         fitId: t.fitId
+       }));
+    }
     else parsedTxs = await parseAdvancedPDF(buffer);
 
     if (parsedTxs.length === 0) return NextResponse.json({ message: 'Nenhuma transação encontrada.' }, { status: 400 });
@@ -436,7 +428,8 @@ export async function POST(request: Request) {
       const tx = parsedTxs[i];
       const suggestedName = (suggestedNames[i] || "Outros").toLowerCase();
       const type = tx.amount > 0 ? 'INCOME' : 'EXPENSE';
-      const externalId = generateFingerprint(tx, accountId);
+      
+      const externalId = tx.fitId || generateFingerprint(tx, accountId);
       
       if (processedInBatch.has(externalId) || existingExternalIds.has(externalId)) continue;
 
