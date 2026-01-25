@@ -41,8 +41,7 @@ export default function CategoryBreakdown({ transactions, isLoading = false }: {
         color: data.color,
         percentage: total > 0 ? (data.amount / total) * 100 : 0
       }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
+      .sort((a, b) => b.amount - a.amount);
   }, [transactions, view]);
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
@@ -67,7 +66,7 @@ export default function CategoryBreakdown({ transactions, isLoading = false }: {
         </div>
       </div>
       
-      <div className="flex-1 space-y-6">
+      <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-2">
         {isLoading ? (
           [...Array(5)].map((_, i) => (
             <div key={i} className="space-y-3">

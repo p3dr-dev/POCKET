@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import SafeSpendHero from '@/components/dashboard_parts/SafeSpendHero';
+import ForecastWidget from '@/components/dashboard_parts/ForecastWidget';
 import CashFlowGrid from '@/components/dashboard_parts/CashFlowGrid';
 import HustleWidget from '@/components/dashboard_parts/HustleWidget';
 import BudgetWidget from '@/components/dashboard_parts/BudgetWidget';
-import DailyExpensesWidget from '@/components/widgets/DailyExpensesWidget';
+import CategoryBreakdown from '@/components/dashboard_parts/CategoryBreakdown';
 import MonthlyDebtsWidget from '@/components/widgets/MonthlyDebtsWidget';
 import { secureFetch } from '@/lib/api-client';
 import { usePrivacy } from '@/components/PrivacyProvider';
@@ -34,6 +35,17 @@ export default function DashboardPage() {
   const formatCurrency = (v: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const getRank = (netWorth: number) => {
+    if (netWorth > 500000) return { label: 'Deus do Pix', color: 'bg-indigo-500', icon: '⚡' };
+    if (netWorth > 100000) return { label: 'Magnata', color: 'bg-emerald-500', icon: '💎' };
+    if (netWorth > 20000) return { label: 'Acumulador', color: 'bg-blue-500', icon: '📈' };
+    if (netWorth > 5000) return { label: 'Sobrevivente', color: 'bg-orange-500', icon: '🛡️' };
+    return { label: 'Iniciante', color: 'bg-gray-500', icon: '🌱' };
+  };
+
+  const netWorth = data ? data.accounts.reduce((sum: number, a: any) => sum + a.balance, 0) : 0;
+  const rank = getRank(netWorth);
+
   return (
     <div className="flex h-[100dvh] bg-[#F8FAFC] font-sans selection:bg-black selection:text-white overflow-hidden text-gray-900">
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
@@ -45,27 +57,36 @@ export default function DashboardPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div>
-              <h1 className="text-xl lg:text-2xl font-black tracking-tight">Visão Geral</h1>
+              <h1 className="text-xl lg:text-2xl font-black tracking-tight leading-none">Visão Geral</h1>
               <p className="hidden md:block text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Inteligência Operacional</p>
             </div>
           </div>
 
-          {/* Privacy Toggle */}
-          <button 
-            onClick={toggleBlur}
-            className={`p-3 rounded-xl transition-all active:scale-95 border ${
-              isBlur 
-                ? 'bg-black text-white border-black shadow-lg' 
-                : 'bg-white text-gray-400 border-gray-100 hover:text-black hover:border-black'
-            }`}
-            title={isBlur ? "Mostrar Valores" : "Ocultar Valores"}
-          >
-            {isBlur ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+          <div className="flex items-center gap-3">
+            {data && (
+              <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ${rank.color} text-white text-[10px] font-black uppercase tracking-widest shadow-lg animate-in zoom-in-50 duration-500`}>
+                <span>{rank.icon}</span>
+                <span>{rank.label}</span>
+              </div>
             )}
-          </button>
+            
+            {/* Privacy Toggle */}
+            <button 
+              onClick={toggleBlur}
+              className={`p-3 rounded-xl transition-all active:scale-95 border ${
+                isBlur 
+                  ? 'bg-black text-white border-black shadow-lg' 
+                  : 'bg-white text-gray-400 border-gray-100 hover:text-black hover:border-black'
+              }`}
+              title={isBlur ? "Mostrar Valores" : "Ocultar Valores"}
+            >
+              {isBlur ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              )}
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -109,6 +130,9 @@ export default function DashboardPage() {
                 {/* 2. Hero: Safe Spend */}
                 <SafeSpendHero data={data.safeSpend} />
 
+                {/* 2.5. Future Forecast */}
+                <ForecastWidget data={data.forecast} />
+
                 {/* 3. Cash Flow Pulse */}
                 <CashFlowGrid pulse={data.pulse} />
 
@@ -121,7 +145,7 @@ export default function DashboardPage() {
                 {/* 5. Detailed Widgets */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
                    <div className="h-[400px]">
-                      <DailyExpensesWidget transactions={data.recentTransactions} />
+                      <CategoryBreakdown transactions={data.recentTransactions} />
                    </div>
                    <div className="h-[400px]">
                       <MonthlyDebtsWidget debts={data.obligationsList} />

@@ -152,9 +152,21 @@ export default function GoalsPage() {
              ) : (
                goals.map((goal) => {
                  const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                 
+                 // Smart Logic
+                 const now = new Date();
+                 const deadline = new Date(goal.deadline);
+                 const monthsLeft = (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth());
+                 
+                 const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+                 const safeMonths = Math.max(1, monthsLeft); // Avoid div by zero
+                 const monthlyNeeded = remaining / safeMonths;
+                 
+                 const isLate = monthsLeft <= 0 && remaining > 0;
+
                  return (
-                   <div key={goal.id} className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group relative overflow-hidden">
-                      <div className="flex justify-between items-start mb-10 relative z-10">
+                   <div key={goal.id} className="bg-white rounded-[2.5rem] p-6 md:p-10 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group relative overflow-hidden flex flex-col justify-between">
+                      <div className="flex justify-between items-start mb-6 relative z-10">
                          <div className="w-14 h-14 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl transform transition-transform group-hover:rotate-6 group-hover:scale-110" style={{ backgroundColor: goal.color || '#000' }}>
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-6.857 2.143L12 21l-2.143-6.857L3 12l6.857-2.143L12 3z" /></svg>
                          </div>
@@ -172,28 +184,32 @@ export default function GoalsPage() {
                       </div>
                       
                       <div className="relative z-10">
-                        <h3 className="text-2xl font-black text-gray-900 mb-2 tracking-tight group-hover:text-black transition-colors">{goal.name}</h3>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8">Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}</p>
+                        <div className="mb-6">
+                           <h3 className="text-2xl font-black text-gray-900 tracking-tight group-hover:text-black transition-colors leading-tight">{goal.name}</h3>
+                           <div className="flex items-center gap-2 mt-2">
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isLate ? 'bg-rose-100 text-rose-600' : 'bg-gray-100 text-gray-500'}`}>
+                                 {isLate ? 'Prazo Expirado' : `${monthsLeft} meses restantes`}
+                              </span>
+                           </div>
+                        </div>
                         
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-end">
-                             <div className="flex flex-col">
-                               <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-none mb-1.5">Acumulado</span>
-                               <span className="text-3xl font-black tabular-nums tracking-tighter">{formatCurrency(goal.currentAmount)}</span>
-                             </div>
-                             <div className="text-right">
-                               <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Meta</span>
-                               <span className="text-sm font-black text-gray-500 tabular-nums">{formatCurrency(goal.targetAmount)}</span>
-                             </div>
+                        <div className="space-y-6">
+                          <div>
+                             <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1">Aporte Mensal Sugerido</p>
+                             <p className="text-xl font-black text-gray-900 tabular-nums">
+                               {isLate ? 'Agora é tudo ou nada' : formatCurrency(monthlyNeeded) + '/mês'}
+                             </p>
                           </div>
-                          
-                          <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100 p-1">
-                             <div className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{ width: `${progress}%`, backgroundColor: goal.color || '#000' }} />
-                          </div>
-                          
-                          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                            <span className="text-gray-400">{progress.toFixed(0)}% concluído</span>
-                            <span className="text-gray-900">{formatCurrency(goal.targetAmount - goal.currentAmount)} faltantes</span>
+
+                          <div className="space-y-3">
+                            <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100 p-1">
+                               <div className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{ width: `${progress}%`, backgroundColor: goal.color || '#000' }} />
+                            </div>
+                            
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                              <span className="text-gray-400">{progress.toFixed(0)}% concluído</span>
+                              <span className="text-gray-900">{formatCurrency(remaining)} faltantes</span>
+                            </div>
                           </div>
                         </div>
                       </div>

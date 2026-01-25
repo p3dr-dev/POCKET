@@ -89,7 +89,7 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess, subscrip
           frequency,
           categoryId, 
           accountId, 
-          nextRun: isVariableDate ? null : nextRun 
+          nextRun: isVariableDate ? null : new Date(nextRun + 'T12:00:00.000Z').toISOString() 
         }),
       });
       

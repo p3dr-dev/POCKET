@@ -78,7 +78,8 @@ export async function GET() {
       accounts: accountsWithBalance,
       budgets: data.budgets,
       recentTransactions: data.recentTransactions,
-      obligationsList: data.obligationsList
+      obligationsList: data.obligationsList,
+      forecast: data.forecast
     });
 
   } catch (error) {

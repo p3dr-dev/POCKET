@@ -20,10 +20,9 @@ export class DashboardService {
         where: { 
           userId, 
           date: { gte: startOfMonth },
-          type: 'EXPENSE',
           transferId: null
         },
-        select: { amount: true, type: true, date: true, transferId: true },
+        select: { amount: true, type: true, date: true, transferId: true, category: { select: { name: true, color: true } } },
         orderBy: { date: 'asc' }
       })
     ]);
@@ -102,7 +101,7 @@ export class DashboardService {
       // Adjust if day of month is passed (rough estimate)
       if (deadline.getDate() < today.getDate()) monthsLeft -= 0.5;
       
-      monthsLeft = Math.max(0.5, monthsLeft); // Avoid division by zero, min half a month
+      monthsLeft = Math.max(1, monthsLeft); // Min 1 month (pay now)
 
       const monthlyContribution = remainingAmount / monthsLeft;
       
@@ -115,6 +114,28 @@ export class DashboardService {
     // 5. Budgets (Category Limits)
     const budgets = await this.getBudgets(userId, now);
 
+    // 6. Future Forecast (30 Days)
+    const forecast = [];
+    let runningBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+    
+    for (let i = 0; i <= 30; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      // Find obligations for this day
+      const dailyHits = obligationsList.filter(o => o.dueDate && o.dueDate.split('T')[0] === dateStr);
+      const totalHits = dailyHits.reduce((sum, o) => sum + (o.totalAmount - o.paidAmount), 0);
+      
+      runningBalance -= totalHits;
+      
+      forecast.push({
+        date: dateStr,
+        balance: runningBalance,
+        label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+      });
+    }
+
     return {
       pulse: { daily, weekly, monthly, activeMonthly },
       fixedCosts: { debts: upcomingObligationsVal, subs: monthlySubsVal, total: totalFixedCosts },
@@ -122,7 +143,8 @@ export class DashboardService {
       accounts,
       budgets,
       recentTransactions,
-      obligationsList
+      obligationsList,
+      forecast
     };
   }
 
