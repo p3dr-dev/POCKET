@@ -100,7 +100,8 @@ export async function POST(request: Request) {
           name: data.name,
           type: data.type,
           color: data.color || '#000000',
-          userId
+          userId,
+          yieldCdiPercent: data.yieldCdiPercent
         }
       });
 

@@ -6,6 +6,7 @@ export const accountSchema = z.object({
   type: z.enum(['BANK', 'CASH', 'CREDIT_CARD', 'CRYPTO', 'INVESTMENT']),
   color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Cor inválida'),
   initialBalance: z.number().optional(),
+  yieldCdiPercent: z.number().nullable().optional(),
 });
 
 // --- Esquemas de Transação ---

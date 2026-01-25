@@ -10,6 +10,7 @@ interface Account {
   name: string;
   type: 'BANK' | 'CASH' | 'CREDIT_CARD' | 'CRYPTO' | 'INVESTMENT';
   color: string;
+  yieldCdiPercent?: number | null;
 }
 
 interface AccountModalProps {
@@ -32,6 +33,8 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
   const [type, setType] = useState<Account['type']>('BANK');
   const [color, setColor] = useState('#000000');
   const [initialBalance, setInitialBalance] = useState('');
+  const [hasYield, setHasYield] = useState(false);
+  const [yieldPercent, setYieldPercent] = useState('100');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -41,11 +44,15 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
         setType(account.type);
         setColor(account.color || '#000000');
         setInitialBalance('');
+        setHasYield(!!account.yieldCdiPercent && account.yieldCdiPercent > 0);
+        setYieldPercent(account.yieldCdiPercent ? account.yieldCdiPercent.toString() : '100');
       } else {
         setName('');
         setType('BANK');
         setColor('#000000');
         setInitialBalance('0');
+        setHasYield(false);
+        setYieldPercent('100');
       }
     }
   }, [isOpen, account]);
@@ -64,7 +71,8 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
           name, 
           type, 
           color, 
-          initialBalance: !account ? parseFloat(initialBalance || '0') : undefined 
+          initialBalance: !account ? parseFloat(initialBalance || '0') : undefined,
+          yieldCdiPercent: hasYield ? parseFloat(yieldPercent) : null
         }),
       });
 
@@ -119,6 +127,42 @@ export default function AccountModal({ isOpen, onClose, onSuccess, account }: Ac
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Yield Section */}
+        <div className="bg-emerald-50/50 rounded-2xl p-6 border border-emerald-100">
+           <div className="flex items-center justify-between mb-4">
+              <div>
+                 <h4 className="text-xs font-black text-gray-900 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    Rendimento Automático
+                 </h4>
+                 <p className="text-[9px] font-medium text-gray-500 mt-1 max-w-[200px]">Simular rendimento diário baseada no CDI (Magie Style).</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={hasYield} onChange={(e) => setHasYield(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+           </div>
+           
+           {hasYield && (
+             <div className="animate-in slide-in-from-top-2 fade-in">
+                <label className="text-[9px] font-black text-emerald-700 uppercase tracking-widest ml-1">Porcentagem do CDI</label>
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    value={yieldPercent}
+                    onChange={(e) => setYieldPercent(e.target.value)}
+                    className="w-full bg-white border-2 border-emerald-100 focus:border-emerald-500 rounded-xl py-3 pl-4 pr-10 text-sm font-bold outline-none transition-all text-emerald-900"
+                    placeholder="100"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-400">%</span>
+                </div>
+                <p className="text-[9px] text-emerald-600/60 mt-2 font-medium">
+                   Calculado diariamente com base na taxa CDI atual (~11.25%).
+                </p>
+             </div>
+           )}
         </div>
 
         {!account && (

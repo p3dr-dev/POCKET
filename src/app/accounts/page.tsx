@@ -14,6 +14,7 @@ interface Account {
   type: 'BANK' | 'CASH' | 'CREDIT_CARD' | 'CRYPTO' | 'INVESTMENT';
   color: string;
   balance: number;
+  yieldCdiPercent?: number;
 }
 
 export default function AccountsPage() {
@@ -23,6 +24,23 @@ export default function AccountsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  const handleProcessYields = async () => {
+    const toastId = toast.loading('Calculando rendimentos...');
+    try {
+      const res = await secureFetch('/api/accounts/yield', { method: 'POST' });
+      const processed = res.filter((r: any) => r.status === 'PROCESSED');
+      
+      if (processed.length > 0) {
+        toast.success(`${processed.length} contas renderam!`, { id: toastId });
+        fetchAccounts();
+      } else {
+        toast('Nenhum rendimento novo hoje.', { icon: '📅', id: toastId });
+      }
+    } catch (error) {
+      toast.error('Erro ao processar rendimentos', { id: toastId });
+    }
+  };
 
   const fetchAccounts = async () => {
     setIsLoading(true);
@@ -105,6 +123,14 @@ export default function AccountsPage() {
           
           <div className="flex gap-2 md:gap-3">
             <button
+              onClick={handleProcessYields}
+              className="hidden lg:flex bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2.5 rounded-xl font-black text-xs items-center gap-2 hover:bg-emerald-100 transition-all active:scale-95 shadow-sm"
+              title="Processar Rendimento Diário (CDI)"
+            >
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+               <span>Render CDI</span>
+            </button>
+            <button
               onClick={handleExport}
               className="hidden md:flex bg-white text-black border border-gray-100 px-4 py-2.5 rounded-xl font-black text-xs items-center gap-2 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
             >
@@ -179,7 +205,14 @@ export default function AccountsPage() {
                       </div>
 
                       <div className="mt-6 md:mt-8">
-                        <span className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block truncate">{acc.name}</span>
+                        <div className="flex justify-between items-end">
+                           <span className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block truncate">{acc.name}</span>
+                           {acc.yieldCdiPercent && acc.yieldCdiPercent > 0 && (
+                             <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded-md border border-emerald-200 uppercase tracking-tighter">
+                               {acc.yieldCdiPercent}% CDI
+                             </span>
+                           )}
+                        </div>
                         <h3 className={`text-2xl md:text-3xl font-black tabular-nums mt-1 truncate ${balance >= 0 ? 'text-gray-900' : 'text-rose-600'}`}>
                           {formatCurrency(balance)}
                         </h3>

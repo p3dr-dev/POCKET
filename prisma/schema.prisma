@@ -53,6 +53,8 @@ model Account {
   transactions Transaction[]
   investments  Investment[]
   recurringTransactions RecurringTransaction[]
+  yieldCdiPercent Float?       // Porcentagem do CDI (ex: 100.0)
+  lastYieldDate   DateTime?    // Data do último processamento de rendimento
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

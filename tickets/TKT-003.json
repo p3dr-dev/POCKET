@@ -1,0 +1,8 @@
+{
+  "id": "TKT-003",
+  "title": "Implement Yield Logic and API",
+  "description": "1. Create `src/services/yield.service.ts`.\n   - Method `processYields(userId)`: Find yielding accounts, calc diff days since `lastYieldDate`, apply CDI formula, create INCOME transactions, update `lastYieldDate`.\n   - Formula: `Balance * ((1 + 0.1125)^(1/252) - 1) * (percentage/100) * (1 - 0.2715)`.\n2. Create `src/app/api/accounts/yield/route.ts` to trigger this service via POST.",
+  "status": "TODO",
+  "path": "src/services/yield.service.ts",
+  "dependencies": ["TKT-002"]
+}

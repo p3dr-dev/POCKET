@@ -1,0 +1,8 @@
+{
+  "id": "TKT-002",
+  "title": "Add Yield Fields to Account Model",
+  "description": "1. Modify `prisma/schema.prisma`:\n   - Add `yieldCdiPercent Float?` to Account model.\n   - Add `lastYieldDate DateTime?` to Account model.\n2. Run `npx prisma migrate dev --name add_account_yield`.\n3. Run `npx prisma generate`.",
+  "status": "TODO",
+  "path": "prisma/schema.prisma",
+  "dependencies": []
+}

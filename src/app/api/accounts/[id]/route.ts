@@ -62,7 +62,8 @@ export async function PUT(
       data: {
         name: body.name,
         type: body.type,
-        color: body.color || '#000000'
+        color: body.color || '#000000',
+        yieldCdiPercent: body.yieldCdiPercent
       }
     });
 
