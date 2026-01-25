@@ -25,26 +25,40 @@ export async function GET() {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = Math.max(1, daysInMonth - now.getDate() + 1);
 
-    // Logic: (Total Liquidity - Obligations in next 30 days) / 30 days
+    // Safe Spend Logic: (Total Liquidity - Obligations in next 30 days) / 30 days
     const disposableIncome = totalBalance - data.fixedCosts.total;
     const safeDaily = disposableIncome / windowDays;
     const safeWeekly = safeDaily * 7;
     const safeMonthly = disposableIncome; // Real disposable for the next 30 days
 
-    // Hustle Logic (Target Income) - Still based on calendar month for budget goals
-    const totalMonthlyNeed = data.fixedCosts.total + data.goals.monthlyNeed;
+    // Hustle Logic (Target Income) - Smart Liquidity Aware
+    // If I have negative liquidity (Debt Hole), I must earn to cover it + goals.
+    // If I have surplus liquidity, it counts towards my goals.
+    
     const currentIncome = data.pulse.monthly.income;
-    const remainingToEarn = Math.max(0, totalMonthlyNeed - currentIncome);
-    const dailyHustleTarget = remainingToEarn / daysRemainingInMonth;
+
+    // Gap = What I Owe - What I Have. Positive = Deficit. Negative = Surplus.
+    const liquidityGap = data.fixedCosts.total - totalBalance; 
+    
+    // Base Need (Goals only, since Fixed Costs are handled in the Gap check against Balance)
+    const baseGoalNeed = data.goals.monthlyNeed;
+    
+    // Total Hustle Needed:
+    // If Gap > 0 (Deficit): Need = Goal + Gap (Fill hole + Reach Goal)
+    // If Gap < 0 (Surplus): Need = Max(0, Goal + Gap) (Use surplus to cover Goal)
+    const totalHustleNeeded = Math.max(0, baseGoalNeed + liquidityGap);
+    
+    const dailyHustleTarget = totalHustleNeeded / daysRemainingInMonth;
 
     const hustle = {
-      needed: totalMonthlyNeed,
-      current: currentIncome,
+      needed: totalHustleNeeded,
+      current: currentIncome, // Keep showing income for reference
       dailyTarget: dailyHustleTarget,
       daysLeft: daysRemainingInMonth,
       breakdown: {
         fixed: data.fixedCosts.total,
-        goals: data.goals.monthlyNeed
+        goals: data.goals.monthlyNeed,
+        liquidityGap // Positive = Deficit
       }
     };
 

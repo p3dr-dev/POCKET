@@ -1,0 +1,8 @@
+{
+  "id": "TKT-001",
+  "title": "Implement Smart Hustle Logic in Dashboard API",
+  "description": "Refactor src/app/api/dashboard/intelligence/route.ts. \n\nLogic:\n1. Calculate `netLiquidity = totalBalance - data.fixedCosts.total`.\n2. Calculate `hustleNeeded` based on Liquidity:\n   - If `netLiquidity < 0`: `needed = data.goals.monthlyNeed + Abs(netLiquidity)`.\n   - If `netLiquidity > 0`: `needed = Max(0, data.goals.monthlyNeed - netLiquidity)`.\n3. Calculate `dailyTarget = needed / daysRemainingInMonth`.\n4. Update the `hustle` object in the response to use these new values (replacing the old logic that only looked at `currentIncome`).\n\nEnsure `currentIncome` is still returned for the progress bar, but the TARGET is the dynamic one.",
+  "status": "DONE",
+  "path": "src/app/api/dashboard/intelligence/route.ts",
+  "dependencies": []
+}
