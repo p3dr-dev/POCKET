@@ -71,7 +71,9 @@ export async function GET() {
          gap: Math.max(0, data.fixedCosts.total - currentIncome)
       },
       accounts: accountsWithBalance,
-      budgets: data.budgets
+      budgets: data.budgets,
+      recentTransactions: data.recentTransactions,
+      obligationsList: data.obligationsList
     });
 
   } catch (error) {

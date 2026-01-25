@@ -11,11 +11,20 @@ export class DashboardService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // 1. Fetch Aggregated Transactions (Single DB Hit strategy roughly)
-    // Actually, distinct queries are cleaner for specific ranges and likely cached by DB
-    const [daily, weekly, monthly] = await Promise.all([
+    const [daily, weekly, monthly, recentTransactions] = await Promise.all([
       this.getFlow(userId, startOfDay),
       this.getFlow(userId, startOfWeek),
-      this.getFlow(userId, startOfMonth)
+      this.getFlow(userId, startOfMonth),
+      prisma.transaction.findMany({
+        where: { 
+          userId, 
+          date: { gte: startOfMonth },
+          type: 'EXPENSE',
+          transferId: null
+        },
+        select: { amount: true, type: true, date: true, transferId: true },
+        orderBy: { date: 'asc' }
+      })
     ]);
 
     // 2. Fetch Balances
@@ -24,7 +33,8 @@ export class DashboardService {
     // 3. Fixed Costs (Debts + Subs)
     const [allDebts, subs] = await Promise.all([
       prisma.debt.findMany({
-        where: { userId }
+        where: { userId },
+        orderBy: { dueDate: 'asc' }
       }),
       prisma.recurringTransaction.findMany({
         where: { userId, active: true }
@@ -33,28 +43,47 @@ export class DashboardService {
 
     const debts = allDebts.filter(d => d.paidAmount < d.totalAmount);
 
-    // Calculate pending debts for a rolling 30-day window (to avoid "end-of-month" illusion)
+    // Calculate pending debts for a rolling 30-day window
     const rollingWindowDate = new Date(now);
     rollingWindowDate.setDate(now.getDate() + 30);
 
-    const upcomingObligations = debts.filter(d => {
-      // FIX: If no due date, do NOT count as upcoming fixed cost (User Feedback)
+    const debtsDue = debts.filter(d => {
       if (!d.dueDate) return false; 
-      
       const dDate = new Date(d.dueDate);
-      // Count if it's due in the past (overdue) OR within the next 30 days
       return dDate <= rollingWindowDate;
-    }).reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+    });
+    
+    const upcomingObligationsVal = debtsDue.reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
 
-    // Calculate monthly subs (Assuming these hit within the 30-day window)
-    const monthlySubs = subs.reduce((sum, s) => {
+    // Calculate monthly subs
+    const monthlySubsVal = subs.reduce((sum, s) => {
       let val = s.amount || 0;
       if (s.frequency === 'WEEKLY') val *= 4;
       if (s.frequency === 'YEARLY') val /= 12;
       return sum + val;
     }, 0);
 
-    const totalFixedCosts = upcomingObligations + monthlySubs;
+    const totalFixedCosts = upcomingObligationsVal + monthlySubsVal;
+    
+    // Create Unified Obligations List for Widget
+    const obligationsList = [
+      ...debtsDue.map(d => ({
+        id: d.id,
+        description: d.description,
+        totalAmount: d.totalAmount,
+        paidAmount: d.paidAmount,
+        dueDate: d.dueDate ? d.dueDate.toISOString() : '',
+        type: 'DEBT' as const
+      })),
+      ...subs.map(s => ({
+        id: s.id,
+        description: s.description || 'Assinatura',
+        totalAmount: s.amount || 0,
+        paidAmount: 0, // Subs don't have partial payment tracking usually
+        dueDate: s.nextRun ? s.nextRun.toISOString() : '', 
+        type: 'SUBSCRIPTION' as const
+      }))
+    ].sort((a, b) => (a.dueDate > b.dueDate ? 1 : -1));
 
     // 4. Goals (Target Gap & Monthly Contribution Needed)
     const goals = await prisma.goal.findMany({ where: { userId } });
@@ -87,10 +116,12 @@ export class DashboardService {
 
     return {
       pulse: { daily, weekly, monthly },
-      fixedCosts: { debts: upcomingObligations, subs: monthlySubs, total: totalFixedCosts },
+      fixedCosts: { debts: upcomingObligationsVal, subs: monthlySubsVal, total: totalFixedCosts },
       goals: goalsMath,
       accounts,
-      budgets
+      budgets,
+      recentTransactions,
+      obligationsList
     };
   }
 

@@ -6,6 +6,8 @@ import SafeSpendHero from '@/components/dashboard_parts/SafeSpendHero';
 import CashFlowGrid from '@/components/dashboard_parts/CashFlowGrid';
 import HustleWidget from '@/components/dashboard_parts/HustleWidget';
 import BudgetWidget from '@/components/dashboard_parts/BudgetWidget';
+import DailyExpensesWidget from '@/components/widgets/DailyExpensesWidget';
+import MonthlyDebtsWidget from '@/components/widgets/MonthlyDebtsWidget';
 import { secureFetch } from '@/lib/api-client';
 import { usePrivacy } from '@/components/PrivacyProvider';
 
@@ -114,6 +116,16 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                    <HustleWidget data={data.hustle} />
                    <BudgetWidget budgets={data.budgets} />
+                </div>
+
+                {/* 5. Detailed Widgets */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
+                   <div className="h-[400px]">
+                      <DailyExpensesWidget transactions={data.recentTransactions} />
+                   </div>
+                   <div className="h-[400px]">
+                      <MonthlyDebtsWidget debts={data.obligationsList} />
+                   </div>
                 </div>
 
               </div>
