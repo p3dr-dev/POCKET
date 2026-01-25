@@ -51,20 +51,19 @@ export default function HustleWidget({ data }: HustleProps) {
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="relative z-10 space-y-2 mb-6">
-          <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
-            <span>Progresso Real</span>
-            <span>{progress.toFixed(0)}%</span>
-          </div>
-          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all duration-1000 ${isCovered ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      </div>
+              {/* Progress Bar */}
+              <div className="relative z-10 space-y-2 mb-6">
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  <span>Cobertura Caixa</span>
+                  <span>{progress.toFixed(0)}%</span>
+                </div>
+                <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-1000 ${isCovered ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                    style={{ width: `${Math.max(0, progress)}%` }}
+                  />
+                </div>
+              </div>      </div>
 
       {/* Breakdown Grid */}
       <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">

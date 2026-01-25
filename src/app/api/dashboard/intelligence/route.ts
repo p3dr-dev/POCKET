@@ -31,34 +31,27 @@ export async function GET() {
     const safeWeekly = safeDaily * 7;
     const safeMonthly = disposableIncome; // Real disposable for the next 30 days
 
-    // Hustle Logic (Target Income) - Smart Liquidity Aware
-    // If I have negative liquidity (Debt Hole), I must earn to cover it + goals.
-    // If I have surplus liquidity, it counts towards my goals.
+    // Hustle Logic (Solvency Based)
+    // We stop looking at "Income History" and look at "Current Solvency".
+    // Formula: (Fixed Costs + Goal Contributions) - Current Balance = Amount to Earn
     
-    const currentIncome = data.pulse.monthly.income;
-
-    // Gap = What I Owe - What I Have. Positive = Deficit. Negative = Surplus.
-    const liquidityGap = data.fixedCosts.total - totalBalance; 
+    const totalMonthlyNeed = data.fixedCosts.total + data.goals.monthlyNeed;
     
-    // Base Need (Goals only, since Fixed Costs are handled in the Gap check against Balance)
-    const baseGoalNeed = data.goals.monthlyNeed;
+    // If Balance covers everything, Missing is 0.
+    // If Balance is low (or negative safe spend), Missing is High.
+    const remainingToRaise = Math.max(0, totalMonthlyNeed - totalBalance);
     
-    // Total Hustle Needed:
-    // If Gap > 0 (Deficit): Need = Goal + Gap (Fill hole + Reach Goal)
-    // If Gap < 0 (Surplus): Need = Max(0, Goal + Gap) (Use surplus to cover Goal)
-    const totalHustleNeeded = Math.max(0, baseGoalNeed + liquidityGap);
-    
-    const dailyHustleTarget = totalHustleNeeded / daysRemainingInMonth;
+    const dailyHustleTarget = remainingToRaise / daysRemainingInMonth;
 
     const hustle = {
-      needed: totalHustleNeeded,
-      current: currentIncome, // Keep showing income for reference
+      needed: totalMonthlyNeed,
+      current: totalBalance, // We compare against Balance, not Income
       dailyTarget: dailyHustleTarget,
       daysLeft: daysRemainingInMonth,
       breakdown: {
         fixed: data.fixedCosts.total,
         goals: data.goals.monthlyNeed,
-        liquidityGap // Positive = Deficit
+        liquidityGap: Math.max(0, data.fixedCosts.total - totalBalance) // For UI feedback
       }
     };
 
