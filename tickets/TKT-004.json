@@ -2,7 +2,10 @@
   "id": "TKT-004",
   "title": "Yield UI Integration",
   "description": "1. Update `src/components/modals/AccountModal.tsx`: Add toggle for 'Rende CDI?' and input for 'Porcentagem'.\n2. Update `src/app/accounts/page.tsx`: Add 'Atualizar Rendimentos' button in the header that calls `/api/accounts/yield`.",
-  "status": "TODO",
+  "status": "DONE",
   "path": "src/components/modals/AccountModal.tsx",
-  "dependencies": ["TKT-002", "TKT-003"]
+  "dependencies": [
+    "TKT-002",
+    "TKT-003"
+  ]
 }
